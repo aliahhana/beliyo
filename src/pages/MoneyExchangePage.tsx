@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import CurrencyConverter from '../components/CurrencyConverter'
-import { ArrowRightLeft, TrendingUp, Clock, Info, Globe, Shield, Zap } from 'lucide-react'
+import { ArrowRightLeft, TrendingUp, Clock, Info, Globe, Shield, Zap, Search, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { currencyService } from '../services/currencyService'
 
@@ -27,6 +27,7 @@ interface ExchangeRate {
 }
 
 const MoneyExchangePage: React.FC = () => {
+  const navigate = useNavigate()
   const [krwAmount, setKrwAmount] = useState('1000')
   const [myrAmount, setMyrAmount] = useState('3.39')
   const [fromCurrency, setFromCurrency] = useState('₩')
@@ -35,6 +36,20 @@ const MoneyExchangePage: React.FC = () => {
   const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([])
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<string>('')
+  const [isMobile, setIsMobile] = useState(false)
+  const [showSearchModal, setShowSearchModal] = useState(false)
+  const [searchInput, setSearchInput] = useState('')
+
+  // Check if mobile on mount and resize
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   useEffect(() => {
     fetchExchangeRequests()
@@ -116,6 +131,25 @@ const MoneyExchangePage: React.FC = () => {
     }
   }
 
+  const handleBeliYoClick = () => {
+    navigate('/')
+  }
+
+  const handleSearch = (query: string) => {
+    if (query.trim()) {
+      setShowSearchModal(false)
+      navigate(`/shop?search=${encodeURIComponent(query.trim())}`)
+    }
+  }
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchInput.trim()) {
+      handleSearch(searchInput.trim())
+      setSearchInput('')
+    }
+  }
+
   const sidebarItems = [
     { icon: TrendingUp, label: 'Live Rates', active: true },
     { icon: Clock, label: 'Rate History' },
@@ -127,6 +161,192 @@ const MoneyExchangePage: React.FC = () => {
     { icon: Zap, label: 'Real-time', description: 'Live market rates' },
     { icon: Shield, label: 'Secure', description: 'Bank-level security' }
   ]
+
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-gray-50 pb-16">
+        {/* Mobile Header */}
+        <div className="bg-[#B91C1C] text-white">
+          {/* Top bar with logo and search */}
+          <div className="flex items-center justify-between p-4">
+            <button 
+              onClick={handleBeliYoClick}
+              className="text-2xl font-bold hover:text-red-200 transition-colors"
+            >
+              BeliYo!
+            </button>
+            <div className="text-xl font-medium">Money Exchange</div>
+            <button 
+              onClick={() => setShowSearchModal(true)}
+              className="hover:text-red-200 transition-colors"
+            >
+              <Search className="w-6 h-6" />
+            </button>
+          </div>
+          
+          {/* Currency Exchange Rate Section */}
+          <div className="px-4 pb-4">
+            <div className="text-center mb-4">
+              <h2 className="text-lg font-bold mb-1">CURRENCY</h2>
+              <h2 className="text-lg font-bold mb-1">EXCHANGE</h2>
+              <h2 className="text-lg font-bold mb-2">RATE TODAY</h2>
+              <div className="text-lg font-medium mb-1">1 won = RM 0.0031</div>
+              <div className="text-sm opacity-90">{formatLastUpdated(lastUpdated)}</div>
+            </div>
+            
+            {/* Currency Converter */}
+            <CurrencyConverter
+              fromAmount={krwAmount}
+              fromCurrency={fromCurrency}
+              toAmount={myrAmount}
+              toCurrency={toCurrency}
+              onFromAmountChange={setKrwAmount}
+              onFromCurrencyChange={setFromCurrency}
+              onToAmountChange={setMyrAmount}
+              onToCurrencyChange={setToCurrency}
+            />
+          </div>
+        </div>
+
+        {/* Search Modal */}
+        {showSearchModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center pt-20">
+            <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4">
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-gray-900">Search Products</h3>
+                  <button
+                    onClick={() => {
+                      setShowSearchModal(false)
+                      setSearchInput('')
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <form onSubmit={handleSearchSubmit}>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      placeholder="Search for products..."
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B91C1C] focus:border-transparent"
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-[#B91C1C] text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      <Search className="w-5 h-5" />
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div className="bg-gray-50 p-4">
+          {/* Exchange Requests */}
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="text-gray-500">Loading exchange requests...</div>
+            </div>
+          ) : exchangeRequests.length === 0 ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="text-center">
+                <div className="text-gray-500 mb-4">No exchange requests found</div>
+                <Link
+                  to="/seller?tab=exchange"
+                  className="text-[#B91C1C] hover:underline"
+                >
+                  Be the first to post an exchange request
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {exchangeRequests.map((request) => (
+                <div key={request.id} className="bg-white rounded-lg shadow-sm p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="text-2xl">{getRandomAvatar()}</div>
+                    <div>
+                      <h3 className="font-medium text-gray-900 text-sm">{getExchangeDescription(request)}</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-base font-bold">
+                          {currencyService.getCurrencySymbol(request.from_currency)}{request.from_amount.toLocaleString()}
+                        </p>
+                        <span className="text-gray-400">→</span>
+                        <p className="text-base font-bold text-[#B91C1C]">
+                          {currencyService.getCurrencySymbol(request.to_currency)}{request.to_amount.toLocaleString()}
+                        </p>
+                      </div>
+                      <p className="text-xs text-gray-500">
+                        {request.location || 'Location not specified'} | {request.timeAgo}
+                      </p>
+                      {request.notes && (
+                        <p className="text-xs text-gray-600 mt-1">
+                          Note: {request.notes}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <button className="bg-[#B91C1C] text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-red-700 transition-colors">
+                    Chat with user
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Bottom Navigation - Standardized */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:hidden">
+          <div className="flex justify-around py-2">
+            <button 
+              onClick={() => navigate('/shop')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">🏪</span>
+              <span className="text-xs font-medium">Shop</span>
+            </button>
+            <button 
+              onClick={() => navigate('/money-exchange')}
+              className="flex flex-col items-center py-2 px-3 text-[#B91C1C] font-medium"
+            >
+              <span className="text-xl mb-1">🔄</span>
+              <span className="text-xs">Exchange</span>
+            </button>
+            <button 
+              onClick={() => navigate('/chat')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">💬</span>
+              <span className="text-xs font-medium">Chats</span>
+            </button>
+            <button 
+              onClick={() => navigate('/mission')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">🎯</span>
+              <span className="text-xs font-medium">Mission</span>
+            </button>
+            <button 
+              onClick={() => navigate('/my-page')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">👤</span>
+              <span className="text-xs font-medium">MyPage</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">

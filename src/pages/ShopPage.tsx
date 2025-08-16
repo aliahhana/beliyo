@@ -23,7 +23,7 @@ interface Product {
 }
 
 const categories = [
-  { key: 'all', label: '🔍 All Products' },
+  { key: 'all', label: 'All Products' },
   { key: 'clothes', label: 'Clothes' },
   { key: 'electric-electronics', label: 'Electric / Electronics' },
   { key: 'sports-equipments', label: 'Sports Equipments' },
@@ -360,6 +360,10 @@ const ShopPage: React.FC = () => {
     navigate('/')
   }
 
+  const handleShopHeaderClick = () => {
+    navigate('/shop')
+  }
+
   const getTimeAgo = (dateString: string) => {
     const now = new Date()
     const date = new Date(dateString)
@@ -455,7 +459,12 @@ const ShopPage: React.FC = () => {
             >
               BeliYo!
             </button>
-            <div className="text-xl font-medium">Shop</div>
+            <button 
+              onClick={handleShopHeaderClick}
+              className="text-xl font-medium hover:text-red-200 transition-colors"
+            >
+              Shop
+            </button>
             <button 
               onClick={() => setShowSearchModal(true)}
               className="hover:text-red-200 transition-colors"
@@ -735,7 +744,7 @@ const ShopPage: React.FC = () => {
     )
   }
 
-  // Desktop version with enhanced search functionality
+  // Desktop version with title display rebuilt
   return (
     <div className="min-h-screen bg-gray-50">
       <Header variant="shop" />
@@ -789,28 +798,13 @@ const ShopPage: React.FC = () => {
           <div className="bg-white rounded-lg shadow-lg p-8">
             <div className="flex justify-between items-center mb-6">
               <div className="flex-1">
-                <h1 className="text-3xl font-bold text-gray-900 mb-4">
-                  {getCurrentCategoryLabel()}
-                </h1>
-                {/* Desktop Search Bar */}
-                <form onSubmit={handleSearchSubmit} className="max-w-md">
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={searchInput}
-                      onChange={(e) => setSearchInput(e.target.value)}
-                      placeholder="Search for products..."
-                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B91C1C] focus:border-transparent"
-                    />
-                    <button
-                      type="submit"
-                      className="px-4 py-2 bg-[#B91C1C] text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
-                    >
-                      <Search className="w-4 h-4" />
-                      Search
-                    </button>
-                  </div>
-                </form>
+                {/* Title Display */}
+                <div className="flex items-center gap-3 mb-4">
+                  <Search className="w-6 h-6 text-[#B91C1C]" />
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    {getCurrentCategoryLabel()}
+                  </h1>
+                </div>
               </div>
               <Link
                 to="/seller"

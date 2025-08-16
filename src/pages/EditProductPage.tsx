@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
-import { ArrowLeft, MapPin, Upload, CheckCircle } from 'lucide-react'
+import { ArrowLeft, MapPin, Upload, CheckCircle, Search, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import LocationPicker from '../components/LocationPicker'
@@ -67,6 +67,20 @@ const EditProductPage: React.FC = () => {
     imagePreview: ''
   })
   const [showLocationPicker, setShowLocationPicker] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+  const [showSearchModal, setShowSearchModal] = useState(false)
+  const [searchInput, setSearchInput] = useState('')
+
+  // Check if mobile on mount and resize
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   useEffect(() => {
     if (id && user) {
@@ -321,6 +335,25 @@ const EditProductPage: React.FC = () => {
     }
   }
 
+  const handleBeliYoClick = () => {
+    navigate('/')
+  }
+
+  const handleSearch = (query: string) => {
+    if (query.trim()) {
+      setShowSearchModal(false)
+      navigate(`/shop?search=${encodeURIComponent(query.trim())}`)
+    }
+  }
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchInput.trim()) {
+      handleSearch(searchInput.trim())
+      setSearchInput('')
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -385,6 +418,340 @@ const EditProductPage: React.FC = () => {
       5: 'Excellent'
     }
     return labels[value] || 'Good'
+  }
+
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        {/* Mobile Header */}
+        <div className="bg-[#B91C1C] text-white">
+          {/* Top bar with logo and search */}
+          <div className="flex items-center justify-between p-4">
+            <button 
+              onClick={handleBeliYoClick}
+              className="text-2xl font-bold hover:text-red-200 transition-colors"
+            >
+              BeliYo!
+            </button>
+            <div className="text-xl font-medium">EDIT PRODUCT</div>
+            <button 
+              onClick={() => setShowSearchModal(true)}
+              className="hover:text-red-200 transition-colors"
+            >
+              <Search className="w-6 h-6" />
+            </button>
+          </div>
+        </div>
+
+        {/* Search Modal */}
+        {showSearchModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center pt-20">
+            <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4">
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-gray-900">Search Products</h3>
+                  <button
+                    onClick={() => {
+                      setShowSearchModal(false)
+                      setSearchInput('')
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <form onSubmit={handleSearchSubmit}>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      placeholder="Search for products..."
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B91C1C] focus:border-transparent"
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-[#B91C1C] text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      <Search className="w-5 h-5" />
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div className="bg-gray-100 pb-20">
+          {/* Back Button */}
+          <div className="bg-white px-4 py-3 border-b border-gray-200">
+            <button
+              onClick={() => navigate('/my-shop')}
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
+            >
+              <ArrowLeft className="w-5 h-5" />
+              Back to My Shop
+            </button>
+          </div>
+
+          {/* Product Status */}
+          {product.is_sold && (
+            <div className="bg-green-50 border-b border-green-200 px-4 py-3">
+              <div className="flex items-center gap-2 text-green-800">
+                <CheckCircle className="w-5 h-5" />
+                <span className="font-medium">This item has been sold</span>
+              </div>
+            </div>
+          )}
+
+          {product.is_sold ? (
+            <div className="bg-white mx-4 mt-4 rounded-lg p-6 text-center">
+              <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+              <h2 className="text-xl font-semibold text-gray-900 mb-2">This item has been sold</h2>
+              <p className="text-gray-600 mb-6">This product is no longer available for editing.</p>
+              <button
+                onClick={() => navigate('/my-shop')}
+                className="px-6 py-3 bg-[#B91C1C] text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Back to My Shop
+              </button>
+            </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="p-4 space-y-4">
+              {/* Product Name */}
+              <div className="bg-white rounded-lg p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Product Name *
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Enter product name"
+                />
+              </div>
+
+              {/* Category */}
+              <div className="bg-white rounded-lg p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Category *
+                </label>
+                <select
+                  required
+                  value={formData.category}
+                  onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                >
+                  {categories.map(cat => (
+                    <option key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Price */}
+              <div className="bg-white rounded-lg p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Price
+                </label>
+                <div className="flex gap-2">
+                  <select
+                    value={formData.currency}
+                    onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value }))}
+                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  >
+                    <option value="RM">RM</option>
+                    <option value="₩">₩ (KRW)</option>
+                    <option value="FREE">FREE</option>
+                  </select>
+                  {formData.currency !== 'FREE' && (
+                    <input
+                      type="number"
+                      value={formData.price}
+                      onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                      placeholder="Enter price"
+                      min="0"
+                      step="0.01"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Condition */}
+              <div className="bg-white rounded-lg p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Condition
+                </label>
+                <div className="flex gap-2 mb-2">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, condition: star }))}
+                      className={`text-2xl ${star <= formData.condition ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-400 transition-colors`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500">
+                  {getConditionLabel(formData.condition)}
+                </p>
+              </div>
+
+              {/* Description */}
+              <div className="bg-white rounded-lg p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description *
+                </label>
+                <textarea
+                  required
+                  value={formData.description}
+                  onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  rows={4}
+                  placeholder="Describe your product"
+                />
+              </div>
+
+              {/* Location */}
+              <div className="bg-white rounded-lg p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Pickup Location
+                </label>
+                <div className="space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowLocationPicker(true)}
+                    className="w-full px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+                  >
+                    <MapPin className="w-4 h-4" />
+                    Pick on Map
+                  </button>
+                  <div className="px-4 py-2 border border-gray-300 rounded-lg bg-gray-50 text-sm">
+                    {formData.location || 'No location selected'}
+                  </div>
+                </div>
+              </div>
+
+              {/* Image Upload */}
+              <div className="bg-white rounded-lg p-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Product Image
+                </label>
+                {formData.imagePreview && (
+                  <div className="mb-4">
+                    <img
+                      src={formData.imagePreview}
+                      alt="Preview"
+                      className="w-full max-w-md h-48 object-cover rounded-lg"
+                      onError={(e) => {
+                        e.currentTarget.src = 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?w=400'
+                      }}
+                    />
+                  </div>
+                )}
+                <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer w-fit">
+                  <Upload className="w-4 h-4" />
+                  {formData.imagePreview ? 'Change Image' : 'Upload Image'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                </label>
+                <p className="text-xs text-gray-500 mt-1">Max file size: 5MB</p>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="space-y-2">
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="w-full px-6 py-3 bg-[#B91C1C] text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                >
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+                <button
+                  type="button"
+                  onClick={handleMarkAsSold}
+                  disabled={markingSold}
+                  className="w-full px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  <CheckCircle className="w-5 h-5" />
+                  {markingSold ? 'Marking as Sold...' : 'Mark as Sold'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => navigate('/my-shop')}
+                  className="w-full px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+
+        {/* Bottom Navigation */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:hidden">
+          <div className="flex justify-around py-2">
+            <button 
+              onClick={() => navigate('/shop')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">🏪</span>
+              <span className="text-xs font-medium">Shop</span>
+            </button>
+            <button 
+              onClick={() => navigate('/money-exchange')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">🔄</span>
+              <span className="text-xs font-medium">Exchange</span>
+            </button>
+            <button 
+              onClick={() => navigate('/chat')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">💬</span>
+              <span className="text-xs font-medium">Chats</span>
+            </button>
+            <button 
+              onClick={() => navigate('/mission')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">🎯</span>
+              <span className="text-xs font-medium">Mission</span>
+            </button>
+            <button 
+              onClick={() => navigate('/my-page')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">👤</span>
+              <span className="text-xs font-medium">MyPage</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Location Picker Modal */}
+        {showLocationPicker && (
+          <LocationPicker
+            onLocationSelect={handleLocationSelect}
+            initialLocation={formData.location}
+            isOpen={showLocationPicker}
+            onClose={() => setShowLocationPicker(false)}
+          />
+        )}
+      </div>
+    )
   }
 
   return (

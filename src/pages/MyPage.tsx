@@ -2,12 +2,14 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Header from '../components/Header'
-import { Store, ShoppingCart, RefreshCw, Target, Award, MessageCircle, Users, User, LogIn, Search } from 'lucide-react'
+import { Store, ShoppingCart, RefreshCw, Target, Award, MessageCircle, Users, User, LogIn, Search, X } from 'lucide-react'
 
 const MyPage: React.FC = () => {
   const { user, profile, signOut } = useAuth()
   const navigate = useNavigate()
   const [isMobile, setIsMobile] = useState(false)
+  const [showSearchModal, setShowSearchModal] = useState(false)
+  const [searchInput, setSearchInput] = useState('')
 
   // Check if mobile on mount and resize
   useEffect(() => {
@@ -80,6 +82,21 @@ const MyPage: React.FC = () => {
     navigate('/')
   }
 
+  const handleSearch = (query: string) => {
+    if (query.trim()) {
+      setShowSearchModal(false)
+      navigate(`/shop?search=${encodeURIComponent(query.trim())}`)
+    }
+  }
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchInput.trim()) {
+      handleSearch(searchInput.trim())
+      setSearchInput('')
+    }
+  }
+
   if (isMobile) {
     return (
       <div className="min-h-screen bg-gray-100">
@@ -93,76 +110,107 @@ const MyPage: React.FC = () => {
             >
               BeliYo!
             </button>
-            <div className="text-xl font-medium">MY PAGE</div>
-            <button className="hover:text-red-200 transition-colors">
+            <div className="text-xl font-medium">My Page</div>
+            <button 
+              onClick={() => setShowSearchModal(true)}
+              className="hover:text-red-200 transition-colors"
+            >
               <Search className="w-6 h-6" />
             </button>
           </div>
           
-          {/* Navigation Grid */}
+          {/* Navigation Grid - 3 Rows Structure */}
           <div className="px-4 pb-4">
-            <div className="grid grid-cols-2 gap-4 text-sm">
-              {/* Row 1 */}
-              <button className="flex items-center gap-3 p-3 text-white hover:bg-red-700 transition-colors">
-                <div className="w-8 h-8 flex items-center justify-center">
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                    <path d="M7 4V2C7 1.45 7.45 1 8 1H16C16.55 1 17 1.45 17 2V4H20C20.55 4 21 4.45 21 5S20.55 6 20 6H19V19C19 20.1 18.1 21 17 21H7C5.9 21 5 20.1 5 19V6H4C3.45 6 3 5.55 3 5S3.45 4 4 4H7ZM9 3V4H15V3H9ZM7 6V19H17V6H7Z"/>
-                  </svg>
-                </div>
-                <span className="font-medium">Purchase<br />History</span>
-              </button>
+            <div className="space-y-4 text-sm">
+              {/* Row 1 - 3 items */}
+              <div className="grid grid-cols-3 gap-2">
+                <button 
+                  onClick={() => navigate('/my-shop')}
+                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
+                >
+                  <Store className="w-6 h-6" />
+                  <span className="font-medium text-xs">My Shop</span>
+                </button>
+                
+                <button className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors bg-red-700">
+                  <ShoppingCart className="w-6 h-6" />
+                  <span className="font-medium text-xs">Purchase History</span>
+                </button>
+                
+                <button className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors">
+                  <RefreshCw className="w-6 h-6" />
+                  <span className="font-medium text-xs">Exchange History</span>
+                </button>
+              </div>
               
-              <button className="flex items-center gap-3 p-3 text-white hover:bg-red-700 transition-colors">
-                <div className="w-8 h-8 flex items-center justify-center">
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                    <path d="M12 2L15.09 8.26L22 9L15.09 9.74L12 16L8.91 9.74L2 9L8.91 8.26L12 2Z"/>
-                  </svg>
-                </div>
-                <span className="font-medium">Badges</span>
-              </button>
+              {/* Row 2 - 3 items */}
+              <div className="grid grid-cols-3 gap-2">
+                <button className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors">
+                  <Target className="w-6 h-6" />
+                  <span className="font-medium text-xs">Mission</span>
+                </button>
+                
+                <button className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors">
+                  <Award className="w-6 h-6" />
+                  <span className="font-medium text-xs">Badges</span>
+                </button>
+                
+                <button className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors">
+                  <MessageCircle className="w-6 h-6" />
+                  <span className="font-medium text-xs">Chat List</span>
+                </button>
+              </div>
               
-              <button className="flex items-center gap-3 p-3 text-white hover:bg-red-700 transition-colors">
-                <div className="w-8 h-8 flex items-center justify-center">
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                    <path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2ZM20 16H5.17L4 17.17V4H20V16Z"/>
-                  </svg>
-                </div>
-                <span className="font-medium">Chingu<br />Lists</span>
-              </button>
-              
-              {/* Row 2 */}
-              <button className="flex items-center gap-3 p-3 text-white hover:bg-red-700 transition-colors">
-                <div className="w-8 h-8 flex items-center justify-center">
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                    <path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2ZM20 16H5.17L4 17.17V4H20V16Z"/>
-                  </svg>
-                </div>
-                <span className="font-medium">Chat<br />Lists</span>
-              </button>
-              
-              <button className="flex items-center gap-3 p-3 text-white hover:bg-red-700 transition-colors">
-                <div className="w-8 h-8 flex items-center justify-center">
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                    <path d="M19 3H18V1H16V3H8V1H6V3H5C3.89 3 3.01 3.9 3.01 5L3 19C3 20.1 3.89 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM19 19H5V8H19V19ZM7 10H12V15H7V10Z"/>
-                  </svg>
-                </div>
-                <span className="font-medium">Mission</span>
-              </button>
-              
-              <button 
-                onClick={() => navigate('/my-shop')}
-                className="flex items-center gap-3 p-3 text-white hover:bg-red-700 transition-colors"
-              >
-                <div className="w-8 h-8 flex items-center justify-center">
-                  <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                    <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2ZM4 14L5 17H7L6 14H4ZM9 14L10 17H12L11 14H9ZM14 14L15 17H17L16 14H14ZM19 14L20 17H22L21 14H19Z"/>
-                  </svg>
-                </div>
-                <span className="font-medium">My Shop</span>
-              </button>
+              {/* Row 3 - 1 item centered */}
+              <div className="flex justify-center">
+                <button className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors w-1/3">
+                  <Users className="w-6 h-6" />
+                  <span className="font-medium text-xs">Chingu List</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>
+
+        {/* Search Modal */}
+        {showSearchModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center pt-20">
+            <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4">
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-gray-900">Search Products</h3>
+                  <button
+                    onClick={() => {
+                      setShowSearchModal(false)
+                      setSearchInput('')
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <form onSubmit={handleSearchSubmit}>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      placeholder="Search for products..."
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B91C1C] focus:border-transparent"
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-[#B91C1C] text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      <Search className="w-5 h-5" />
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="bg-gray-100 pb-20">
@@ -261,53 +309,42 @@ const MyPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Bottom Navigation */}
-        <div className="fixed bottom-0 left-0 right-0 bg-[#B91C1C] text-white">
-          <div className="flex justify-around items-center py-3">
+        {/* Bottom Navigation - Standardized to match ShopPage */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:hidden">
+          <div className="flex justify-around py-2">
             <button 
               onClick={() => navigate('/shop')}
-              className="flex flex-col items-center gap-1 hover:text-red-200 transition-colors"
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
             >
-              <div className="w-6 h-6 flex items-center justify-center">
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                  <path d="M19 7H16V6C16 3.79 14.21 2 12 2S8 3.79 8 6V7H5C3.9 7 3 7.9 3 9V20C3 21.1 3.9 22 5 22H19C20.1 22 21 21.1 21 20V9C21 7.9 20.1 7 19 7ZM10 6C10 4.9 10.9 4 12 4S14 4.9 14 6V7H10V6ZM19 20H5V9H7V11C7 11.55 7.45 12 8 12S9 11.55 9 12V11H15V12C15 12.55 15.45 13 16 13S17 12.55 17 12V11H19V20Z"/>
-                </svg>
-              </div>
-              <span className="text-xs">Shop</span>
+              <span className="text-xl mb-1">🏪</span>
+              <span className="text-xs font-medium">Shop</span>
             </button>
-            <button className="flex flex-col items-center gap-1 hover:text-red-200 transition-colors">
-              <div className="w-6 h-6 flex items-center justify-center">
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                  <path d="M12 2L13.09 8.26L22 9L13.09 9.74L12 16L10.91 9.74L2 9L10.91 8.26L12 2ZM4 14L5 17H7L6 14H4ZM9 14L10 17H12L11 14H9ZM14 14L15 17H17L16 14H14ZM19 14L20 17H22L21 14H19Z"/>
-                </svg>
-              </div>
-              <span className="text-xs">Exchange</span>
+            <button 
+              onClick={() => navigate('/money-exchange')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">🔄</span>
+              <span className="text-xs font-medium">Exchange</span>
             </button>
-            <button className="flex flex-col items-center gap-1 hover:text-red-200 transition-colors">
-              <div className="w-6 h-6 flex items-center justify-center">
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                  <path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2ZM20 16H5.17L4 17.17V4H20V16Z"/>
-                </svg>
-              </div>
-              <span className="text-xs">Chats</span>
+            <button 
+              onClick={() => navigate('/chat')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">💬</span>
+              <span className="text-xs font-medium">Chats</span>
             </button>
-            <button className="flex flex-col items-center gap-1 hover:text-red-200 transition-colors">
-              <div className="w-6 h-6 flex items-center justify-center">
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                  <path d="M19 3H18V1H16V3H8V1H6V3H5C3.89 3 3.01 3.9 3.01 5L3 19C3 20.1 3.89 21 5 21H19C20.1 21 21 20.1 21 19V5C21 3.9 20.1 3 19 3ZM19 19H5V8H19V19ZM7 10H12V15H7V10Z"/>
-                </svg>
-              </div>
-              <span className="text-xs">Mission</span>
+            <button 
+              onClick={() => navigate('/mission')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">🎯</span>
+              <span className="text-xs font-medium">Mission</span>
             </button>
             <button 
               onClick={() => navigate('/my-page')}
-              className="flex flex-col items-center gap-1 hover:text-red-200 transition-colors"
+              className="flex flex-col items-center py-2 px-3 text-[#B91C1C] font-medium"
             >
-              <div className="w-6 h-6 flex items-center justify-center">
-                <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-                  <path d="M12 2C13.1 2 14 2.9 14 4C14 5.1 13.1 6 12 6C10.9 6 10 5.1 10 4C10 2.9 10.9 2 12 2ZM21 9V7L15 1H9L3 7V9H21ZM12 10C8.69 10 6 12.69 6 16S8.69 22 12 22 18 19.31 18 16 15.31 10 12 10Z"/>
-                </svg>
-              </div>
+              <span className="text-xl mb-1">👤</span>
               <span className="text-xs">MyPage</span>
             </button>
           </div>
@@ -328,7 +365,7 @@ const MyPage: React.FC = () => {
               onClick={handleMyPageClick}
               className="text-white text-xl font-bold mb-6 cursor-pointer hover:opacity-90 transition-opacity"
             >
-              MY PAGE
+              My Page
             </h1>
             
             <div className="space-y-2">

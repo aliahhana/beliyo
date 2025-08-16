@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { currencyService } from '../services/currencyService'
 import Header from '../components/Header'
-import { ShoppingCart, Award, Users, MessageCircle, Target, Store, User, LogIn, Package, RefreshCw, Edit, Trash2, Eye, EyeOff, Plus, ChevronDown, AlertTriangle } from 'lucide-react'
+import { ShoppingCart, Award, Users, MessageCircle, Target, Store, User, LogIn, Package, RefreshCw, Edit, Trash2, Eye, EyeOff, Plus, ChevronDown, AlertTriangle, Search, X } from 'lucide-react'
 
 interface Product {
   id: string
@@ -45,6 +45,20 @@ const MyShopPage: React.FC = () => {
   const [deleteModalOpen, setDeleteModalOpen] = useState(false)
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
   const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+  const [showSearchModal, setShowSearchModal] = useState(false)
+  const [searchInput, setSearchInput] = useState('')
+
+  // Check if mobile on mount and resize
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   useEffect(() => {
     if (!user) {
@@ -311,6 +325,25 @@ const MyShopPage: React.FC = () => {
     setShowCurrencyDropdown(false)
   }
 
+  const handleBeliYoClick = () => {
+    navigate('/')
+  }
+
+  const handleSearch = (query: string) => {
+    if (query.trim()) {
+      setShowSearchModal(false)
+      navigate(`/shop?search=${encodeURIComponent(query.trim())}`)
+    }
+  }
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchInput.trim()) {
+      handleSearch(searchInput.trim())
+      setSearchInput('')
+    }
+  }
+
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -357,6 +390,527 @@ const MyShopPage: React.FC = () => {
   const activeProducts = products.filter(p => !p.is_sold)
   const soldProducts = products.filter(p => p.is_sold)
   const displayProducts = activeTab === 'active' ? activeProducts : soldProducts
+
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        {/* Mobile Header */}
+        <div className="bg-[#B91C1C] text-white">
+          {/* Top bar with logo and search */}
+          <div className="flex items-center justify-between p-4">
+            <button 
+              onClick={handleBeliYoClick}
+              className="text-2xl font-bold hover:text-red-200 transition-colors"
+            >
+              BeliYo!
+            </button>
+            <div className="text-xl font-medium">My Shop</div>
+            <button 
+              onClick={() => setShowSearchModal(true)}
+              className="hover:text-red-200 transition-colors"
+            >
+              <Search className="w-6 h-6" />
+            </button>
+          </div>
+          
+          {/* Navigation Grid - 3 Rows Structure */}
+          <div className="px-4 pb-4">
+            <div className="space-y-4 text-sm">
+              {/* Row 1 - 3 items */}
+              <div className="grid grid-cols-3 gap-2">
+                <button 
+                  onClick={() => navigate('/my-shop')}
+                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors bg-red-700"
+                >
+                  <Store className="w-6 h-6" />
+                  <span className="font-medium text-xs">My Shop</span>
+                </button>
+                
+                <button 
+                  onClick={() => navigate('/my-page')}
+                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
+                >
+                  <ShoppingCart className="w-6 h-6" />
+                  <span className="font-medium text-xs">Purchase History</span>
+                </button>
+                
+                <button 
+                  onClick={() => navigate('/my-page')}
+                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
+                >
+                  <RefreshCw className="w-6 h-6" />
+                  <span className="font-medium text-xs">Exchange History</span>
+                </button>
+              </div>
+              
+              {/* Row 2 - 3 items */}
+              <div className="grid grid-cols-3 gap-2">
+                <button 
+                  onClick={() => navigate('/my-page')}
+                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
+                >
+                  <Target className="w-6 h-6" />
+                  <span className="font-medium text-xs">Mission</span>
+                </button>
+                
+                <button 
+                  onClick={() => navigate('/my-page')}
+                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
+                >
+                  <Award className="w-6 h-6" />
+                  <span className="font-medium text-xs">Badges</span>
+                </button>
+                
+                <button 
+                  onClick={() => navigate('/my-page')}
+                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
+                >
+                  <MessageCircle className="w-6 h-6" />
+                  <span className="font-medium text-xs">Chat List</span>
+                </button>
+              </div>
+              
+              {/* Row 3 - 1 item centered */}
+              <div className="flex justify-center">
+                <button 
+                  onClick={() => navigate('/my-page')}
+                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors w-1/3"
+                >
+                  <Users className="w-6 h-6" />
+                  <span className="font-medium text-xs">Chingu List</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Search Modal */}
+        {showSearchModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center pt-20">
+            <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4">
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-gray-900">Search Products</h3>
+                  <button
+                    onClick={() => {
+                      setShowSearchModal(false)
+                      setSearchInput('')
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <form onSubmit={handleSearchSubmit}>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      placeholder="Search for products..."
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B91C1C] focus:border-transparent"
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-[#B91C1C] text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      <Search className="w-5 h-5" />
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div className="bg-gray-100 pb-20">
+          {/* Stats Cards */}
+          <div className="bg-white px-4 py-6">
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div className="bg-gray-50 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold text-gray-900">{products.length}</div>
+                <div className="text-xs text-gray-600">Total Products</div>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold text-green-600">{activeProducts.length}</div>
+                <div className="text-xs text-gray-600">Active Listings</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-gray-50 rounded-lg p-3 text-center">
+                <div className="text-lg font-bold text-red-600">{soldProducts.length}</div>
+                <div className="text-xs text-gray-600">Sold Items</div>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3 text-center relative">
+                <div className="text-lg font-bold text-blue-600">
+                  {formatTotalSales()}
+                </div>
+                <div className="flex items-center justify-center gap-1">
+                  <span className="text-xs text-gray-600">Total Sales</span>
+                  <button
+                    onClick={() => setShowCurrencyDropdown(!showCurrencyDropdown)}
+                    className="text-xs bg-gray-200 hover:bg-gray-300 rounded px-1 transition-colors"
+                  >
+                    {salesCurrency}
+                  </button>
+                </div>
+                
+                {showCurrencyDropdown && (
+                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 overflow-hidden">
+                    <button
+                      onClick={() => handleCurrencyChange('KRW')}
+                      className={`block w-full px-3 py-2 text-left text-xs hover:bg-gray-50 transition-colors ${
+                        salesCurrency === 'KRW' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700'
+                      }`}
+                    >
+                      ₩ KRW
+                    </button>
+                    <button
+                      onClick={() => handleCurrencyChange('MYR')}
+                      className={`block w-full px-3 py-2 text-left text-xs hover:bg-gray-50 transition-colors ${
+                        salesCurrency === 'MYR' ? 'bg-blue-50 text-blue-600 font-medium' : 'text-gray-700'
+                      }`}
+                    >
+                      RM MYR
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Tabs */}
+          <div className="bg-white mt-2 px-4 py-4">
+            <div className="flex gap-4 mb-4">
+              <button
+                onClick={() => setActiveTab('active')}
+                className={`pb-2 px-1 font-medium text-sm transition-colors ${
+                  activeTab === 'active'
+                    ? 'text-red-600 border-b-2 border-red-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Active ({activeProducts.length})
+              </button>
+              <button
+                onClick={() => setActiveTab('sold')}
+                className={`pb-2 px-1 font-medium text-sm transition-colors ${
+                  activeTab === 'sold'
+                    ? 'text-red-600 border-b-2 border-red-600'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Sold ({soldProducts.length})
+              </button>
+            </div>
+            
+            <div className="flex justify-between items-center">
+              {selectedProducts.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-600">
+                    {selectedProducts.length} selected
+                  </span>
+                  <button
+                    onClick={handleBulkDelete}
+                    className="flex items-center gap-1 px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 transition-colors"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Delete
+                  </button>
+                </div>
+              )}
+              <button
+                onClick={() => navigate('/seller')}
+                className="flex items-center gap-1 px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700 transition-colors ml-auto"
+              >
+                <Plus className="w-4 h-4" />
+                Add Product
+              </button>
+            </div>
+          </div>
+
+          {/* Products Grid */}
+          <div className="px-4 py-4">
+            {loading ? (
+              <div className="bg-white rounded-lg p-8 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
+                <p className="mt-4 text-gray-600 text-sm">Loading your products...</p>
+              </div>
+            ) : displayProducts.length === 0 ? (
+              <div className="bg-white rounded-lg p-8 text-center">
+                <Store className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  {activeTab === 'active' ? 'No Active Listings' : 'No Sold Items'}
+                </h3>
+                <p className="text-gray-600 text-sm mb-4">
+                  {activeTab === 'active' 
+                    ? "You haven't listed any products yet."
+                    : "You haven't sold any items yet."}
+                </p>
+                {activeTab === 'active' && (
+                  <button
+                    onClick={() => navigate('/seller')}
+                    className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-red-700 transition-colors"
+                  >
+                    List Your First Product
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {/* Select All */}
+                {displayProducts.length > 0 && (
+                  <div className="bg-white rounded-lg p-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={selectedProducts.length === displayProducts.length && displayProducts.length > 0}
+                        onChange={selectAllProducts}
+                        className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
+                      />
+                      <span className="text-sm text-gray-600">Select All</span>
+                    </label>
+                  </div>
+                )}
+
+                {displayProducts.map((product) => (
+                  <div key={product.id} className="bg-white rounded-lg overflow-hidden shadow-sm">
+                    {/* Selection Checkbox */}
+                    <div className="p-3 border-b border-gray-100">
+                      <label className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={selectedProducts.includes(product.id)}
+                          onChange={() => toggleProductSelection(product.id)}
+                          className="w-4 h-4 text-red-600 rounded focus:ring-red-500"
+                        />
+                        <span className="text-sm text-gray-600">Select</span>
+                      </label>
+                    </div>
+
+                    {/* Product Content */}
+                    <div className="flex p-3 gap-3">
+                      {/* Product Image */}
+                      <div className="relative w-20 h-20 bg-gray-100 rounded-lg flex-shrink-0">
+                        {product.images && product.images.length > 0 ? (
+                          <img
+                            src={product.images[0]}
+                            alt={product.title}
+                            className="w-full h-full object-cover rounded-lg"
+                            onError={(e) => {
+                              e.currentTarget.src = 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?w=400'
+                            }}
+                          />
+                        ) : product.image_url ? (
+                          <img
+                            src={product.image_url}
+                            alt={product.title}
+                            className="w-full h-full object-cover rounded-lg"
+                            onError={(e) => {
+                              e.currentTarget.src = 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?w=400'
+                            }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <Package className="w-8 h-8 text-gray-400" />
+                          </div>
+                        )}
+                        {product.is_sold && (
+                          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-lg">
+                            <span className="bg-red-600 text-white px-2 py-1 rounded text-xs font-bold">
+                              SOLD
+                            </span>
+                          </div>
+                        )}
+                        {product.image_count > 1 && (
+                          <div className="absolute top-1 right-1 bg-black bg-opacity-60 text-white px-1 py-0.5 rounded text-xs">
+                            +{product.image_count - 1}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Product Info */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-gray-900 text-sm truncate mb-1">{product.title}</h3>
+                        <p className="text-green-600 font-bold text-lg mb-1">
+                          {formatPrice(product.price, product.currency)}
+                        </p>
+                        <div className="flex gap-1 mb-2">
+                          <span className="bg-gray-100 px-2 py-0.5 rounded text-xs truncate">{product.category}</span>
+                          <span className="bg-gray-100 px-2 py-0.5 rounded text-xs">{product.condition}</span>
+                        </div>
+                        <p className="text-xs text-gray-500 mb-2">
+                          Listed {new Date(product.created_at).toLocaleDateString()}
+                        </p>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-1">
+                          <button
+                            onClick={() => navigate(`/product/${product.id}`)}
+                            className="flex-1 flex items-center justify-center gap-1 px-2 py-1 border border-gray-300 text-gray-700 rounded text-xs hover:bg-gray-50 transition-colors"
+                          >
+                            <Eye className="w-3 h-3" />
+                            View
+                          </button>
+                          <button
+                            onClick={() => navigate(`/edit-product/${product.id}`)}
+                            className="flex-1 flex items-center justify-center gap-1 px-2 py-1 border border-gray-300 text-gray-700 rounded text-xs hover:bg-gray-50 transition-colors"
+                          >
+                            <Edit className="w-3 h-3" />
+                            Edit
+                          </button>
+                          <button
+                            onClick={() => handleToggleSold(product.id, product.is_sold)}
+                            className={`flex-1 flex items-center justify-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                              product.is_sold
+                                ? 'bg-green-600 text-white hover:bg-green-700'
+                                : 'bg-yellow-600 text-white hover:bg-yellow-700'
+                            }`}
+                          >
+                            {product.is_sold ? (
+                              <>
+                                <Eye className="w-3 h-3" />
+                                Unmark
+                              </>
+                            ) : (
+                              <>
+                                <EyeOff className="w-3 h-3" />
+                                Sold
+                              </>
+                            )}
+                          </button>
+                          <button
+                            onClick={() => handleDeleteProduct(product)}
+                            className="flex items-center justify-center gap-1 px-2 py-1 bg-red-600 text-white rounded text-xs hover:bg-red-700 transition-colors"
+                          >
+                            <Trash2 className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom Navigation - Standardized to match other pages */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:hidden">
+          <div className="flex justify-around py-2">
+            <button 
+              onClick={() => navigate('/shop')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">🏪</span>
+              <span className="text-xs font-medium">Shop</span>
+            </button>
+            <button 
+              onClick={() => navigate('/money-exchange')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">🔄</span>
+              <span className="text-xs font-medium">Exchange</span>
+            </button>
+            <button 
+              onClick={() => navigate('/chat')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">💬</span>
+              <span className="text-xs font-medium">Chats</span>
+            </button>
+            <button 
+              onClick={() => navigate('/mission')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">🎯</span>
+              <span className="text-xs font-medium">Mission</span>
+            </button>
+            <button 
+              onClick={() => navigate('/my-page')}
+              className="flex flex-col items-center py-2 px-3 text-[#B91C1C] font-medium"
+            >
+              <span className="text-xl mb-1">👤</span>
+              <span className="text-xs">MyPage</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Single Delete Confirmation Modal */}
+        {deleteModalOpen && productToDelete && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900">Delete Product</h3>
+              </div>
+              
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to delete "<span className="font-semibold">{productToDelete.title}</span>"? 
+                This action cannot be undone.
+              </p>
+              
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => {
+                    setDeleteModalOpen(false)
+                    setProductToDelete(null)
+                  }}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Delete Product
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Bulk Delete Confirmation Modal */}
+        {bulkDeleteModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                  <AlertTriangle className="w-6 h-6 text-red-600" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900">Delete Multiple Products</h3>
+              </div>
+              
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to delete <span className="font-semibold">{selectedProducts.length} product{selectedProducts.length > 1 ? 's' : ''}</span>? 
+                This action cannot be undone.
+              </p>
+              
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => setBulkDeleteModalOpen(false)}
+                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmBulkDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Delete {selectedProducts.length} Product{selectedProducts.length > 1 ? 's' : ''}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">

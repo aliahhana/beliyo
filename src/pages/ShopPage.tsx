@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
-import { Link, useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams, useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
-import { Plus, Edit2, Trash2, CheckCircle, ChevronLeft, ChevronRight } from 'lucide-react'
+import { Plus, Edit2, Trash2, CheckCircle, ChevronLeft, ChevronRight, Search, ChevronDown, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
@@ -201,6 +201,7 @@ const getDefaultImage = (category: string) => {
 
 const ShopPage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams()
+  const navigate = useNavigate()
   const categoryFromUrl = searchParams.get('category')
   const searchFromUrl = searchParams.get('search')
   const [selectedCategory, setSelectedCategory] = useState(categoryFromUrl || 'all')
@@ -210,7 +211,22 @@ const ShopPage: React.FC = () => {
   const [productToDelete, setProductToDelete] = useState<Product | null>(null)
   const [searchQuery, setSearchQuery] = useState(searchFromUrl || '')
   const [isSearching, setIsSearching] = useState(!!searchFromUrl)
+  const [isMobile, setIsMobile] = useState(false)
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false)
+  const [showSearchModal, setShowSearchModal] = useState(false)
+  const [searchInput, setSearchInput] = useState('')
   const { user } = useAuth()
+
+  // Check if mobile on mount and resize
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   useEffect(() => {
     if (categoryFromUrl) {
@@ -280,6 +296,7 @@ const ShopPage: React.FC = () => {
     setSelectedCategory(categoryKey)
     setSearchQuery('')
     setIsSearching(false)
+    setShowCategoryDropdown(false)
     // Update URL params
     searchParams.delete('search')
     if (categoryKey !== 'all') {
@@ -315,6 +332,32 @@ const ShopPage: React.FC = () => {
       console.error('Error deleting product:', error)
       alert('Failed to delete product')
     }
+  }
+
+  const handleSearch = (query: string) => {
+    if (query.trim()) {
+      setSearchQuery(query.trim())
+      setIsSearching(true)
+      setSelectedCategory('all')
+      setShowSearchModal(false)
+      setShowCategoryDropdown(false)
+      // Update URL params
+      searchParams.delete('category')
+      searchParams.set('search', query.trim())
+      setSearchParams(searchParams)
+    }
+  }
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchInput.trim()) {
+      handleSearch(searchInput.trim())
+      setSearchInput('')
+    }
+  }
+
+  const handleBeliYoClick = () => {
+    navigate('/')
   }
 
   const getTimeAgo = (dateString: string) => {
@@ -386,6 +429,313 @@ const ShopPage: React.FC = () => {
     return categoryMap[category] || category.toUpperCase()
   }
 
+  // Mobile category chips for horizontal scrolling
+  const mobileCategoryChips = [
+    { key: 'clothes', label: 'Clothes' },
+    { key: 'electric-electronics', label: 'Electric / Electronics' },
+    { key: 'sports-equipments', label: 'Sports Equipments' },
+    { key: 'household-supplies', label: 'Household Supplies' },
+    { key: 'musical-instruments', label: 'Musical Instruments' },
+    { key: 'food-drinks', label: 'Food & Drinks' },
+    { key: 'cosmetics', label: 'Cosmetics' },
+    { key: 'books', label: 'Books' },
+    { key: 'others', label: 'Others' }
+  ]
+
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-gray-50 pb-16">
+        {/* Mobile Header */}
+        <div className="bg-[#B91C1C] text-white">
+          {/* Top bar with logo and search */}
+          <div className="flex items-center justify-between p-4">
+            <button 
+              onClick={handleBeliYoClick}
+              className="text-2xl font-bold hover:text-red-200 transition-colors"
+            >
+              BeliYo!
+            </button>
+            <div className="text-xl font-medium">Shop</div>
+            <button 
+              onClick={() => setShowSearchModal(true)}
+              className="hover:text-red-200 transition-colors"
+            >
+              <Search className="w-6 h-6" />
+            </button>
+          </div>
+          
+          {/* Category dropdown trigger */}
+          <div className="px-4 pb-2">
+            <button
+              onClick={() => setShowCategoryDropdown(!showCategoryDropdown)}
+              className="flex items-center gap-2 text-white"
+            >
+              <ChevronRight className="w-5 h-5" />
+              <span className="font-medium">CATEGORY</span>
+              <ChevronDown className={`w-4 h-4 transition-transform ${showCategoryDropdown ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+          
+          {/* Category horizontal scroll */}
+          <div className="px-4 pb-4">
+            <div className="flex gap-3 overflow-x-auto scrollbar-hide">
+              {mobileCategoryChips.map((category) => (
+                <button
+                  key={category.key}
+                  onClick={() => handleCategoryClick(category.key)}
+                  className={`whitespace-nowrap px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    selectedCategory === category.key && !isSearching
+                      ? 'bg-white text-[#B91C1C]'
+                      : 'bg-red-700 text-white hover:bg-red-600'
+                  }`}
+                >
+                  {category.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Search Modal */}
+        {showSearchModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center pt-20">
+            <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4">
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-gray-900">Search Products</h3>
+                  <button
+                    onClick={() => {
+                      setShowSearchModal(false)
+                      setSearchInput('')
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <form onSubmit={handleSearchSubmit}>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      placeholder="Search for products..."
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B91C1C] focus:border-transparent"
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-[#B91C1C] text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      <Search className="w-5 h-5" />
+                    </button>
+                  </div>
+                </form>
+                {isSearching && (
+                  <div className="mt-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">
+                        Current search: "{searchQuery}"
+                      </span>
+                      <button
+                        onClick={clearSearch}
+                        className="text-sm text-[#B91C1C] hover:text-red-700 underline"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Category dropdown overlay */}
+        {showCategoryDropdown && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50" onClick={() => setShowCategoryDropdown(false)}>
+            <div className="bg-white mt-32 mx-4 rounded-lg shadow-lg max-h-96 overflow-y-auto">
+              {categories.map((category) => (
+                <button
+                  key={category.key}
+                  onClick={() => handleCategoryClick(category.key)}
+                  className={`block w-full text-left px-4 py-3 hover:bg-gray-50 ${
+                    selectedCategory === category.key && !isSearching ? 'bg-red-50 text-[#B91C1C] font-medium' : 'text-gray-900'
+                  }`}
+                >
+                  {category.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div className="p-4">
+          {loading ? (
+            <div className="flex justify-center items-center h-64">
+              <div className="text-gray-500">Loading products...</div>
+            </div>
+          ) : products.length === 0 ? (
+            <div className="flex flex-col justify-center items-center h-64">
+              <div className="text-gray-500 text-lg mb-2">
+                {isSearching 
+                  ? `No products found for "${searchQuery}"`
+                  : selectedCategory === 'all' 
+                    ? 'No products found' 
+                    : `No products found in ${getCurrentCategoryLabel()}`
+                }
+              </div>
+              <p className="text-gray-400 text-sm">
+                {isSearching 
+                  ? 'Try searching with different keywords'
+                  : 'Be the first to sell an item!'
+                }
+              </p>
+              {isSearching && (
+                <button
+                  onClick={clearSearch}
+                  className="mt-4 text-[#B91C1C] hover:text-red-700 underline"
+                >
+                  Clear search and browse all products
+                </button>
+              )}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              {products.map((product) => (
+                <div
+                  key={product.id}
+                  className={`bg-white rounded-lg shadow-md overflow-hidden relative group ${
+                    product.status === 'sold' ? 'opacity-75' : ''
+                  }`}
+                >
+                  {/* Sold Badge */}
+                  {product.status === 'sold' && (
+                    <div className="absolute top-2 left-2 z-20 bg-green-600 text-white px-2 py-1 rounded-full text-xs font-medium flex items-center gap-1">
+                      <CheckCircle className="w-3 h-3" />
+                      SOLD
+                    </div>
+                  )}
+
+                  {/* Edit/Delete buttons for product owner */}
+                  {user?.id === product.seller_id && (
+                    <div className="absolute top-2 right-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Link
+                        to={`/edit-product/${product.id}`}
+                        className="bg-white p-1.5 rounded-lg shadow-md hover:bg-gray-100 transition-colors"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <Edit2 className="w-3 h-3 text-gray-600" />
+                      </Link>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          handleDelete(product)
+                        }}
+                        className="bg-white p-1.5 rounded-lg shadow-md hover:bg-red-50 transition-colors"
+                      >
+                        <Trash2 className="w-3 h-3 text-red-600" />
+                      </button>
+                    </div>
+                  )}
+                  
+                  <Link to={`/product/${product.id}`}>
+                    <ProductImageCarousel 
+                      product={product} 
+                      className="aspect-square relative"
+                    />
+                    <div className="p-3">
+                      <h3 className={`font-medium text-sm line-clamp-2 mb-1 ${
+                        product.status === 'sold' ? 'text-gray-500' : 'text-gray-900'
+                      }`}>
+                        {product.name}
+                      </h3>
+                      <p className={`font-bold text-lg mb-1 ${
+                        product.status === 'sold' 
+                          ? 'text-gray-500' 
+                          : product.currency === 'FREE' 
+                            ? 'text-green-600' 
+                            : 'text-gray-900'
+                      }`}>
+                        {formatPrice(product.price, product.currency)}
+                      </p>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className={`${product.status === 'sold' ? 'text-gray-400' : 'text-gray-500'} truncate flex-1 mr-2`}>
+                          {formatLocation(product.location)}
+                        </span>
+                        <span className={`${product.status === 'sold' ? 'text-gray-400' : 'text-gray-500'} whitespace-nowrap`}>
+                          {product.timeAgo}
+                        </span>
+                      </div>
+                    </div>
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Mobile Bottom Navigation */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:hidden">
+          <div className="flex justify-around py-2">
+            <Link to="/shop" className="flex flex-col items-center py-2 px-3 text-[#B91C1C] font-medium">
+              <span className="text-xl mb-1">🏪</span>
+              <span className="text-xs">Shop</span>
+            </Link>
+            <Link to="/money-exchange" className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors">
+              <span className="text-xl mb-1">🔄</span>
+              <span className="text-xs font-medium">Exchange</span>
+            </Link>
+            <Link to="/chat" className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors">
+              <span className="text-xl mb-1">💬</span>
+              <span className="text-xs font-medium">Chats</span>
+            </Link>
+            <Link to="/mission" className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors">
+              <span className="text-xl mb-1">🎯</span>
+              <span className="text-xs font-medium">Mission</span>
+            </Link>
+            <Link to="/my-page" className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors">
+              <span className="text-xl mb-1">👤</span>
+              <span className="text-xs font-medium">MyPage</span>
+            </Link>
+          </div>
+        </div>
+
+        {/* Delete Confirmation Modal */}
+        {deleteModalOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+              <h3 className="text-lg font-bold text-gray-900 mb-4">Delete Product</h3>
+              <p className="text-gray-600 mb-6 text-sm">
+                Are you sure you want to delete "{productToDelete?.name}"? This action cannot be undone.
+              </p>
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={() => {
+                    setDeleteModalOpen(false)
+                    setProductToDelete(null)
+                  }}
+                  className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-sm"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmDelete}
+                  className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Desktop version with enhanced search functionality
   return (
     <div className="min-h-screen bg-gray-50">
       <Header variant="shop" />
@@ -415,7 +765,12 @@ const ShopPage: React.FC = () => {
         <div className="flex-1 p-8">
           {/* Breadcrumb - Matching ProductDetailPage Style */}
           <div className="flex items-center gap-2 text-sm text-gray-600 mb-6">
-            <span className="hover:text-[#B91C1C] cursor-pointer">SHOP</span>
+            <button 
+              onClick={handleBeliYoClick}
+              className="hover:text-[#B91C1C] cursor-pointer transition-colors"
+            >
+              SHOP
+            </button>
             {!isSearching && selectedCategory !== 'all' && (
               <>
                 <span>/</span>
@@ -433,9 +788,30 @@ const ShopPage: React.FC = () => {
           {/* Content Container - Matching ProductDetailPage */}
           <div className="bg-white rounded-lg shadow-lg p-8">
             <div className="flex justify-between items-center mb-6">
-              <h1 className="text-3xl font-bold text-gray-900">
-                {getCurrentCategoryLabel()}
-              </h1>
+              <div className="flex-1">
+                <h1 className="text-3xl font-bold text-gray-900 mb-4">
+                  {getCurrentCategoryLabel()}
+                </h1>
+                {/* Desktop Search Bar */}
+                <form onSubmit={handleSearchSubmit} className="max-w-md">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      placeholder="Search for products..."
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B91C1C] focus:border-transparent"
+                    />
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-[#B91C1C] text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                    >
+                      <Search className="w-4 h-4" />
+                      Search
+                    </button>
+                  </div>
+                </form>
+              </div>
               <Link
                 to="/seller"
                 className="flex items-center gap-2 bg-[#B91C1C] text-white px-6 py-3 rounded-lg font-medium hover:bg-red-700 transition-colors"
@@ -476,18 +852,20 @@ const ShopPage: React.FC = () => {
               </div>
             ) : (
               <>
-                <div className="mb-6 text-sm text-gray-600">
-                  {products.length} {products.length === 1 ? 'item' : 'items'} found
-                  {isSearching 
-                    ? ` for "${searchQuery}"`
-                    : selectedCategory !== 'all' 
-                      ? ` in ${getCurrentCategoryLabel()}`
-                      : ''
-                  }
+                <div className="mb-6 text-sm text-gray-600 flex items-center justify-between">
+                  <span>
+                    {products.length} {products.length === 1 ? 'item' : 'items'} found
+                    {isSearching 
+                      ? ` for "${searchQuery}"`
+                      : selectedCategory !== 'all' 
+                        ? ` in ${getCurrentCategoryLabel()}`
+                        : ''
+                    }
+                  </span>
                   {isSearching && (
                     <button
                       onClick={clearSearch}
-                      className="ml-4 text-[#B91C1C] hover:text-red-700 underline"
+                      className="text-[#B91C1C] hover:text-red-700 underline"
                     >
                       Clear search
                     </button>

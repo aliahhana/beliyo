@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { currencyService } from '../services/currencyService'
 import Header from '../components/Header'
-import { ShoppingCart, Award, Users, MessageCircle, Target, Store, User, LogIn, Package, RefreshCw, Edit, Trash2, Eye, EyeOff, Plus, ChevronDown } from 'lucide-react'
+import { ShoppingCart, Award, Users, MessageCircle, Target, Store, User, LogIn, Package, RefreshCw, Edit, Trash2, Eye, EyeOff, Plus, ChevronDown, AlertTriangle } from 'lucide-react'
 
 interface Product {
   id: string
@@ -42,6 +42,9 @@ const MyShopPage: React.FC = () => {
   const [salesCurrency, setSalesCurrency] = useState<'KRW' | 'MYR'>('KRW')
   const [showCurrencyDropdown, setShowCurrencyDropdown] = useState(false)
   const [exchangeRate, setExchangeRate] = useState<number>(322.58) // Default KRW to MYR rate
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null)
+  const [bulkDeleteModalOpen, setBulkDeleteModalOpen] = useState(false)
 
   useEffect(() => {
     if (!user) {
@@ -156,22 +159,29 @@ const MyShopPage: React.FC = () => {
     }
   }
 
-  const handleDeleteProduct = async (productId: string) => {
-    if (!confirm('Are you sure you want to delete this product?')) return
+  const handleDeleteProduct = async (product: Product) => {
+    setProductToDelete(product)
+    setDeleteModalOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!productToDelete || !user) return
 
     try {
       const { error } = await supabase
         .from('products')
         .delete()
-        .eq('id', productId)
-        .eq('user_id', user?.id)
+        .eq('id', productToDelete.id)
+        .eq('user_id', user.id)
 
       if (error) throw error
       
       // Update will happen via real-time subscription
       // But we can optimistically update the UI
-      setProducts(products.filter(p => p.id !== productId))
-      setSelectedProducts(selectedProducts.filter(id => id !== productId))
+      setProducts(products.filter(p => p.id !== productToDelete.id))
+      setSelectedProducts(selectedProducts.filter(id => id !== productToDelete.id))
+      setDeleteModalOpen(false)
+      setProductToDelete(null)
     } catch (error) {
       console.error('Error deleting product:', error)
       alert('Failed to delete product. Please try again.')
@@ -203,26 +213,30 @@ const MyShopPage: React.FC = () => {
     }
   }
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = () => {
     if (selectedProducts.length === 0) {
       alert('Please select products to delete')
       return
     }
+    setBulkDeleteModalOpen(true)
+  }
 
-    if (!confirm(`Are you sure you want to delete ${selectedProducts.length} product(s)?`)) return
+  const confirmBulkDelete = async () => {
+    if (!user || selectedProducts.length === 0) return
 
     try {
       const { error } = await supabase
         .from('products')
         .delete()
         .in('id', selectedProducts)
-        .eq('user_id', user?.id)
+        .eq('user_id', user.id)
 
       if (error) throw error
       
       // Optimistically update the UI
       setProducts(products.filter(p => !selectedProducts.includes(p.id)))
       setSelectedProducts([])
+      setBulkDeleteModalOpen(false)
     } catch (error) {
       console.error('Error deleting products:', error)
       alert('Failed to delete products. Please try again.')
@@ -257,6 +271,7 @@ const MyShopPage: React.FC = () => {
 
   // Calculate total sales with currency conversion
   const calculateTotalSales = () => {
+    const soldProducts = products.filter(p => p.is_sold)
     const totalInKRW = soldProducts.reduce((sum, p) => {
       if (p.currency === 'FREE') return sum
       
@@ -641,6 +656,13 @@ const MyShopPage: React.FC = () => {
                           </>
                         )}
                       </button>
+                      <button
+                        onClick={() => handleDeleteProduct(product)}
+                        className="flex items-center justify-center gap-1 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors text-sm"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -649,6 +671,77 @@ const MyShopPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Single Delete Confirmation Modal */}
+      {deleteModalOpen && productToDelete && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Delete Product</h3>
+            </div>
+            
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete "<span className="font-semibold">{productToDelete.title}</span>"? 
+              This action cannot be undone.
+            </p>
+            
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setDeleteModalOpen(false)
+                  setProductToDelete(null)
+                }}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete Product
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Delete Confirmation Modal */}
+      {bulkDeleteModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6 text-red-600" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900">Delete Multiple Products</h3>
+            </div>
+            
+            <p className="text-gray-600 mb-6">
+              Are you sure you want to delete <span className="font-semibold">{selectedProducts.length} product{selectedProducts.length > 1 ? 's' : ''}</span>? 
+              This action cannot be undone.
+            </p>
+            
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setBulkDeleteModalOpen(false)}
+                className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmBulkDelete}
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete {selectedProducts.length} Product{selectedProducts.length > 1 ? 's' : ''}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

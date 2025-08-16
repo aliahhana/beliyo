@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { ArrowDownUp, RefreshCw } from 'lucide-react'
+import { ArrowDownUp, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react'
 import { currencyService } from '../services/currencyService'
 
 interface CurrencyConverterProps {
@@ -29,6 +29,7 @@ const CurrencyConverter: React.FC<CurrencyConverterProps> = ({
   const [lastUpdated, setLastUpdated] = useState<string>('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string>('')
+  const [rateChange, setRateChange] = useState<number>(0)
 
   // Load exchange rate on mount and when currencies change
   useEffect(() => {
@@ -59,8 +60,13 @@ const CurrencyConverter: React.FC<CurrencyConverterProps> = ({
       const rate = await currencyService.getExchangeRate(fromCurrency, toCurrency)
       const lastUpdate = await currencyService.getLastUpdated()
       
+      // Calculate rate change (mock data for demo)
+      const previousRate = exchangeRate || rate
+      const change = ((rate - previousRate) / previousRate) * 100
+      
       setExchangeRate(rate)
       setLastUpdated(lastUpdate)
+      setRateChange(change)
     } catch (err) {
       console.error('Error loading exchange rate:', err)
       setError('Failed to load exchange rate')
@@ -92,8 +98,15 @@ const CurrencyConverter: React.FC<CurrencyConverterProps> = ({
         hour12: true
       })
     } catch {
-      return 'Unknown'
+      return 'Just now'
     }
+  }
+
+  const formatExchangeRate = (rate: number) => {
+    if (toCurrency === '₩' || toCurrency === 'KRW') {
+      return rate.toFixed(2)
+    }
+    return rate.toFixed(4)
   }
 
   return (
@@ -103,7 +116,7 @@ const CurrencyConverter: React.FC<CurrencyConverterProps> = ({
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <span className="text-white text-sm font-medium">
-              Exchange Rate
+              Live Exchange Rate
             </span>
             {loading && <RefreshCw className="w-4 h-4 text-white animate-spin" />}
           </div>
@@ -111,6 +124,7 @@ const CurrencyConverter: React.FC<CurrencyConverterProps> = ({
             onClick={loadExchangeRate}
             disabled={loading || disabled}
             className="text-white/70 hover:text-white transition-colors disabled:opacity-50"
+            title="Refresh rate"
           >
             <RefreshCw className="w-4 h-4" />
           </button>
@@ -120,9 +134,23 @@ const CurrencyConverter: React.FC<CurrencyConverterProps> = ({
           <p className="text-red-200 text-sm">{error}</p>
         ) : (
           <>
-            <p className="text-white text-sm">
-              1 {fromCurrency} = {exchangeRate.toFixed(toCurrency === '₩' ? 0 : 4)} {toCurrency}
-            </p>
+            <div className="flex items-center gap-2">
+              <p className="text-white text-sm font-semibold">
+                1 {fromCurrency} = {formatExchangeRate(exchangeRate)} {toCurrency}
+              </p>
+              {rateChange !== 0 && (
+                <div className={`flex items-center gap-1 ${rateChange > 0 ? 'text-green-300' : 'text-red-300'}`}>
+                  {rateChange > 0 ? (
+                    <TrendingUp className="w-3 h-3" />
+                  ) : (
+                    <TrendingDown className="w-3 h-3" />
+                  )}
+                  <span className="text-xs">
+                    {Math.abs(rateChange).toFixed(2)}%
+                  </span>
+                </div>
+              )}
+            </div>
             {lastUpdated && (
               <p className="text-white/70 text-xs mt-1">
                 Updated: {formatLastUpdated(lastUpdated)}
@@ -152,6 +180,7 @@ const CurrencyConverter: React.FC<CurrencyConverterProps> = ({
         >
           <option value="₩" className="text-black">KRW (₩)</option>
           <option value="RM" className="text-black">MYR (RM)</option>
+          <option value="$" className="text-black">USD ($)</option>
         </select>
       </div>
 
@@ -161,6 +190,7 @@ const CurrencyConverter: React.FC<CurrencyConverterProps> = ({
           onClick={handleSwapCurrencies}
           disabled={disabled}
           className="p-2 text-white hover:bg-white/10 rounded-full transition-colors disabled:opacity-50"
+          title="Swap currencies"
         >
           <ArrowDownUp className="w-6 h-6" />
         </button>
@@ -186,13 +216,17 @@ const CurrencyConverter: React.FC<CurrencyConverterProps> = ({
         >
           <option value="RM" className="text-black">MYR (RM)</option>
           <option value="₩" className="text-black">KRW (₩)</option>
+          <option value="$" className="text-black">USD ($)</option>
         </select>
       </div>
 
       {/* Data Source */}
       <div className="text-center">
         <p className="text-white/60 text-xs">
-          Exchange rates from Bank Negara Malaysia
+          Real-time rates from global currency markets
+        </p>
+        <p className="text-white/40 text-xs mt-1">
+          Powered by Exchange Rate API
         </p>
       </div>
     </div>

@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase'
 interface Product {
   id: string
   seller_id: string
+  user_id: string
   name: string
   description: string
   price: number
@@ -16,7 +17,7 @@ interface Product {
   image_url?: string
   images?: string[]
   image_count?: number
-  location: string
+  location: string | { address?: string; coordinates?: any }
   condition: number
   status: string
   created_at: string
@@ -33,6 +34,34 @@ const categories = [
   { key: 'books', label: 'Books' },
   { key: 'others', label: 'Others' }
 ]
+
+// Helper function to format location display
+const formatLocation = (location: string | { address?: string; coordinates?: any } | null | undefined): string => {
+  if (!location) return 'Location not specified'
+  
+  // If it's already a string, check if it's JSON
+  if (typeof location === 'string') {
+    // Try to parse if it looks like JSON
+    if (location.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(location)
+        return parsed.address || 'Location not specified'
+      } catch {
+        // If parsing fails, return as is (might be a plain address string)
+        return location
+      }
+    }
+    // Plain string address
+    return location
+  }
+  
+  // If it's an object with address property
+  if (typeof location === 'object' && location.address) {
+    return location.address
+  }
+  
+  return 'Location not specified'
+}
 
 // Image carousel component for product detail page
 const ProductDetailImageCarousel: React.FC<{ 
@@ -264,7 +293,7 @@ const ProductDetailPage: React.FC = () => {
           <div className="p-6">
             <h2 className="text-white text-xl font-bold mb-6">CATEGORY</h2>
             
-            {/* All Products Button */}
+            {/* All Products Button - Without bg-white */}
             <Link 
               to="/shop"
               className="block w-full text-left px-4 py-3 mb-4 text-white font-medium hover:bg-red-700 transition-colors"
@@ -277,7 +306,7 @@ const ProductDetailPage: React.FC = () => {
                 <Link 
                   key={category.key}
                   to={`/shop?category=${category.key}`}
-                  className={`block w-full text-left px-4 py-3 text-white transition-colors font-medium ${
+                  className={`block w-full text-left px-4 py-3 text-white transition-colors ${
                     product.category === category.key ? 'bg-red-700' : 'hover:bg-red-700'
                   }`}
                 >
@@ -342,7 +371,7 @@ const ProductDetailPage: React.FC = () => {
 
                 {/* Pickup Point Section with Real Map */}
                 <MapComponent 
-                  location={product.location} 
+                  location={formatLocation(product.location)} 
                   productName={product.name}
                 />
               </div>

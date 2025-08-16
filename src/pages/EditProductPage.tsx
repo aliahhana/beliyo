@@ -8,18 +8,23 @@ import LocationPicker from '../components/LocationPicker'
 
 interface Product {
   id: string
-  seller_id: string
+  user_id: string
+  title: string
   name: string
   description: string
   price: number
   currency: string
   category: string
   image_url?: string
-  location: string
+  images?: string[]
+  location: any
   latitude?: number
   longitude?: number
-  condition: number
+  condition: number | string  // Can be either during transition
   status: string
+  is_sold: boolean
+  created_at: string
+  updated_at: string
 }
 
 interface LocationData {
@@ -64,12 +69,20 @@ const EditProductPage: React.FC = () => {
   const [showLocationPicker, setShowLocationPicker] = useState(false)
 
   useEffect(() => {
-    if (id) {
+    if (id && user) {
       fetchProduct(id)
+    } else if (!user) {
+      navigate('/login')
     }
-  }, [id])
+  }, [id, user])
 
   const fetchProduct = async (productId: string) => {
+    if (!user) {
+      alert('Please sign in to edit products')
+      navigate('/login')
+      return
+    }
+
     setLoading(true)
     try {
       const { data, error } = await supabase
@@ -78,33 +91,71 @@ const EditProductPage: React.FC = () => {
         .eq('id', productId)
         .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Error fetching product:', error)
+        throw error
+      }
 
       // Check if user owns this product
-      if (data.seller_id !== user?.id) {
+      if (data.user_id !== user.id) {
         alert('You are not authorized to edit this product')
-        navigate('/shop')
+        navigate('/my-shop')
         return
       }
 
       setProduct(data)
+      
+      // Parse location
+      let locationAddress = ''
+      let lat = null
+      let lng = null
+      
+      if (data.location) {
+        if (typeof data.location === 'object') {
+          locationAddress = data.location.address || ''
+          lat = data.location.coordinates?.lat || null
+          lng = data.location.coordinates?.lng || null
+        } else if (typeof data.location === 'string') {
+          locationAddress = data.location
+        }
+      }
+
+      // Parse condition - handle both string and number formats
+      let conditionValue = 3
+      
+      if (typeof data.condition === 'string') {
+        // Map string conditions to numbers
+        const conditionMap: { [key: string]: number } = {
+          'Poor': 1,
+          'Fair': 2,
+          'Good': 3,
+          'Very Good': 4,
+          'Excellent': 5
+        }
+        conditionValue = conditionMap[data.condition] || 3
+      } else if (typeof data.condition === 'number') {
+        conditionValue = data.condition
+      }
+
       setFormData({
-        name: data.name,
-        description: data.description,
-        price: data.price === 0 ? '' : data.price.toString(),
-        currency: data.currency,
-        category: data.category,
-        location: data.location,
-        latitude: data.latitude,
-        longitude: data.longitude,
-        condition: data.condition,
+        name: data.title || data.name || '',
+        description: data.description || '',
+        price: data.price === 0 && data.currency === 'FREE' ? '' : (data.price || 0).toString(),
+        currency: data.currency || 'RM',
+        category: data.category || 'others',
+        location: locationAddress,
+        latitude: lat || data.latitude || null,
+        longitude: lng || data.longitude || null,
+        condition: conditionValue,
         image: null,
-        imagePreview: data.image_url || ''
+        imagePreview: (data.images && Array.isArray(data.images) && data.images.length > 0) 
+          ? data.images[0] 
+          : data.image_url || ''
       })
     } catch (error) {
       console.error('Error fetching product:', error)
       alert('Failed to load product')
-      navigate('/shop')
+      navigate('/my-shop')
     } finally {
       setLoading(false)
     }
@@ -113,6 +164,10 @@ const EditProductPage: React.FC = () => {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image size must be less than 5MB')
+        return
+      }
       setFormData(prev => ({
         ...prev,
         image: file,
@@ -122,7 +177,6 @@ const EditProductPage: React.FC = () => {
   }
 
   const handleLocationSelect = (locationData: LocationData) => {
-    console.log('Location selected:', locationData)
     setFormData(prev => ({
       ...prev,
       location: locationData.address,
@@ -141,15 +195,18 @@ const EditProductPage: React.FC = () => {
         .from('products')
         .update({
           status: 'sold',
-          updated_at: new Date().toISOString()
+          is_sold: true
         })
         .eq('id', product.id)
-        .eq('seller_id', user.id)
+        .eq('user_id', user.id)
 
-      if (error) throw error
+      if (error) {
+        console.error('Error marking as sold:', error)
+        throw error
+      }
 
       alert('Product marked as sold successfully!')
-      navigate('/shop')
+      navigate('/my-shop')
     } catch (error) {
       console.error('Error marking product as sold:', error)
       alert('Failed to mark product as sold')
@@ -162,53 +219,103 @@ const EditProductPage: React.FC = () => {
     e.preventDefault()
     if (!user || !product) return
 
+    // Validation
+    if (!formData.name.trim()) {
+      alert('Please enter a product name')
+      return
+    }
+
+    if (!formData.description.trim()) {
+      alert('Please enter a description')
+      return
+    }
+
+    if (formData.currency !== 'FREE' && (!formData.price || parseFloat(formData.price) < 0)) {
+      alert('Please enter a valid price')
+      return
+    }
+
     setSaving(true)
     try {
-      let imageUrl = product.image_url
+      let imageUrl = product.image_url || ''
+      let images = product.images || []
 
       // Upload new image if provided
       if (formData.image) {
         const fileExt = formData.image.name.split('.').pop()
         const fileName = `${user.id}-${Date.now()}.${fileExt}`
-        const { error: uploadError } = await supabase.storage
+        
+        const { error: uploadError, data: uploadData } = await supabase.storage
           .from('product-images')
           .upload(fileName, formData.image)
 
-        if (uploadError) throw uploadError
+        if (uploadError) {
+          console.error('Upload error:', uploadError)
+          throw uploadError
+        }
 
         const { data: { publicUrl } } = supabase.storage
           .from('product-images')
           .getPublicUrl(fileName)
 
         imageUrl = publicUrl
+        images = [publicUrl]
       }
 
+      // Prepare update data - IMPORTANT: condition should be an integer now
+      const updateData: any = {
+        name: formData.name.trim(),
+        title: formData.name.trim(),
+        description: formData.description.trim(),
+        price: formData.currency === 'FREE' ? 0 : parseFloat(formData.price) || 0,
+        currency: formData.currency,
+        category: formData.category,
+        condition: formData.condition,  // Send as integer (1-5)
+        image_url: imageUrl || null,
+        images: Array.isArray(images) ? images : [],
+        image_count: Array.isArray(images) ? images.length : 0
+      }
+
+      // Add location data if available
+      if (formData.location) {
+        updateData.location = {
+          address: formData.location,
+          coordinates: {
+            lat: formData.latitude || 0,
+            lng: formData.longitude || 0
+          }
+        }
+        updateData.latitude = formData.latitude
+        updateData.longitude = formData.longitude
+      } else {
+        updateData.location = null
+        updateData.latitude = null
+        updateData.longitude = null
+      }
+
+      console.log('Updating product with data:', updateData)
+      console.log('Condition value type:', typeof updateData.condition, 'Value:', updateData.condition)
+
       // Update product
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('products')
-        .update({
-          name: formData.name,
-          description: formData.description,
-          price: formData.currency === 'FREE' ? 0 : parseFloat(formData.price) || 0,
-          currency: formData.currency,
-          category: formData.category,
-          location: formData.location,
-          latitude: formData.latitude,
-          longitude: formData.longitude,
-          condition: formData.condition,
-          image_url: imageUrl,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateData)
         .eq('id', product.id)
-        .eq('seller_id', user.id) // Ensure user can only update their own products
+        .eq('user_id', user.id)
+        .select()
+        .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Update error:', error)
+        throw error
+      }
 
+      console.log('Product updated successfully:', data)
       alert('Product updated successfully!')
-      navigate('/shop')
-    } catch (error) {
+      navigate('/my-shop')
+    } catch (error: any) {
       console.error('Error updating product:', error)
-      alert('Failed to update product')
+      alert(`Failed to update product: ${error.message || 'Unknown error'}`)
     } finally {
       setSaving(false)
     }
@@ -225,23 +332,78 @@ const EditProductPage: React.FC = () => {
     )
   }
 
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header variant="shop" />
+        <div className="max-w-4xl mx-auto px-4 py-16">
+          <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Sign In Required</h2>
+            <p className="text-gray-600 mb-8">
+              Please sign in to edit products.
+            </p>
+            <button
+              onClick={() => navigate('/login')}
+              className="bg-red-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-red-700 transition-colors"
+            >
+              Sign In
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!product) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header variant="shop" />
+        <div className="max-w-4xl mx-auto px-4 py-16">
+          <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Product Not Found</h2>
+            <p className="text-gray-600 mb-8">
+              The product you're looking for doesn't exist or has been removed.
+            </p>
+            <button
+              onClick={() => navigate('/my-shop')}
+              className="bg-red-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-red-700 transition-colors"
+            >
+              Back to My Shop
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const getConditionLabel = (value: number): string => {
+    const labels: { [key: number]: string } = {
+      1: 'Poor',
+      2: 'Fair',
+      3: 'Good',
+      4: 'Very Good',
+      5: 'Excellent'
+    }
+    return labels[value] || 'Good'
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header variant="shop" />
       
       <div className="max-w-4xl mx-auto p-8">
         <button
-          onClick={() => navigate('/shop')}
+          onClick={() => navigate('/my-shop')}
           className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
         >
           <ArrowLeft className="w-5 h-5" />
-          Back to Shop
+          Back to My Shop
         </button>
 
         <div className="bg-white rounded-lg shadow-lg p-8">
           <div className="flex justify-between items-center mb-6">
             <h1 className="text-2xl font-bold text-gray-900">Edit Product</h1>
-            {product?.status === 'sold' && (
+            {product.is_sold && (
               <div className="flex items-center gap-2 bg-green-100 text-green-800 px-3 py-1 rounded-full">
                 <CheckCircle className="w-4 h-4" />
                 <span className="text-sm font-medium">SOLD</span>
@@ -249,16 +411,16 @@ const EditProductPage: React.FC = () => {
             )}
           </div>
 
-          {product?.status === 'sold' ? (
+          {product.is_sold ? (
             <div className="text-center py-12">
               <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
               <h2 className="text-xl font-semibold text-gray-900 mb-2">This item has been sold</h2>
-              <p className="text-gray-600 mb-6">This product is no longer available for purchase.</p>
+              <p className="text-gray-600 mb-6">This product is no longer available for editing.</p>
               <button
-                onClick={() => navigate('/shop')}
+                onClick={() => navigate('/my-shop')}
                 className="px-6 py-3 bg-[#B91C1C] text-white rounded-lg hover:bg-red-700 transition-colors"
               >
-                Back to Shop
+                Back to My Shop
               </button>
             </div>
           ) : (
@@ -309,7 +471,7 @@ const EditProductPage: React.FC = () => {
                     className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   >
                     <option value="RM">RM</option>
-                    <option value="WON">WON</option>
+                    <option value="₩">₩ (KRW)</option>
                     <option value="FREE">FREE</option>
                   </select>
                   {formData.currency !== 'FREE' && (
@@ -337,12 +499,15 @@ const EditProductPage: React.FC = () => {
                       key={star}
                       type="button"
                       onClick={() => setFormData(prev => ({ ...prev, condition: star }))}
-                      className={`text-2xl ${star <= formData.condition ? 'text-yellow-400' : 'text-gray-300'}`}
+                      className={`text-2xl ${star <= formData.condition ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-400 transition-colors`}
                     >
                       ★
                     </button>
                   ))}
                 </div>
+                <p className="text-xs text-gray-500 mt-1">
+                  {getConditionLabel(formData.condition)}
+                </p>
               </div>
 
               {/* Description */}
@@ -363,7 +528,7 @@ const EditProductPage: React.FC = () => {
               {/* Location */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Pickup Location *
+                  Pickup Location
                 </label>
                 <div className="flex gap-2">
                   <button
@@ -391,6 +556,9 @@ const EditProductPage: React.FC = () => {
                       src={formData.imagePreview}
                       alt="Preview"
                       className="w-full max-w-md h-48 object-cover rounded-lg"
+                      onError={(e) => {
+                        e.currentTarget.src = 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?w=400'
+                      }}
                     />
                   </div>
                 )}
@@ -404,13 +572,14 @@ const EditProductPage: React.FC = () => {
                     className="hidden"
                   />
                 </label>
+                <p className="text-xs text-gray-500 mt-1">Max file size: 5MB</p>
               </div>
 
               {/* Submit Buttons */}
               <div className="flex gap-4">
                 <button
                   type="button"
-                  onClick={() => navigate('/shop')}
+                  onClick={() => navigate('/my-shop')}
                   className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                 >
                   Cancel

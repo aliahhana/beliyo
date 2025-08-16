@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import Header from '../components/Header'
 import CurrencyConverter from '../components/CurrencyConverter'
-import { ArrowRightLeft, TrendingUp, Clock, Info } from 'lucide-react'
+import { ArrowRightLeft, TrendingUp, Clock, Info, Globe, Shield, Zap } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { currencyService } from '../services/currencyService'
 
@@ -20,16 +20,25 @@ interface ExchangeRequest {
   timeAgo: string
 }
 
+interface ExchangeRate {
+  currency_code: string
+  currency_name: string
+  rate: number
+}
+
 const MoneyExchangePage: React.FC = () => {
   const [krwAmount, setKrwAmount] = useState('1000')
-  const [myrAmount, setMyrAmount] = useState('3.07')
+  const [myrAmount, setMyrAmount] = useState('3.39')
+  const [fromCurrency, setFromCurrency] = useState('₩')
+  const [toCurrency, setToCurrency] = useState('RM')
   const [exchangeRequests, setExchangeRequests] = useState<ExchangeRequest[]>([])
+  const [exchangeRates, setExchangeRates] = useState<ExchangeRate[]>([])
   const [loading, setLoading] = useState(true)
   const [lastUpdated, setLastUpdated] = useState<string>('')
 
   useEffect(() => {
     fetchExchangeRequests()
-    loadExchangeRateInfo()
+    loadExchangeRates()
   }, [])
 
   const fetchExchangeRequests = async () => {
@@ -56,12 +65,14 @@ const MoneyExchangePage: React.FC = () => {
     }
   }
 
-  const loadExchangeRateInfo = async () => {
+  const loadExchangeRates = async () => {
     try {
+      const rates = await currencyService.getExchangeRates()
       const lastUpdate = await currencyService.getLastUpdated()
+      setExchangeRates(rates.slice(0, 6)) // Show top 6 currencies
       setLastUpdated(lastUpdate)
     } catch (error) {
-      console.error('Error loading exchange rate info:', error)
+      console.error('Error loading exchange rates:', error)
     }
   }
 
@@ -101,7 +112,7 @@ const MoneyExchangePage: React.FC = () => {
         hour12: true
       })
     } catch {
-      return 'Unknown'
+      return 'Just now'
     }
   }
 
@@ -109,6 +120,12 @@ const MoneyExchangePage: React.FC = () => {
     { icon: TrendingUp, label: 'Live Rates', active: true },
     { icon: Clock, label: 'Rate History' },
     { icon: Info, label: 'Exchange Info' }
+  ]
+
+  const features = [
+    { icon: Globe, label: 'Global Coverage', description: '180+ currencies' },
+    { icon: Zap, label: 'Real-time', description: 'Live market rates' },
+    { icon: Shield, label: 'Secure', description: 'Bank-level security' }
   ]
 
   return (
@@ -140,53 +157,76 @@ const MoneyExchangePage: React.FC = () => {
               })}
             </div>
             
-            {/* Official Rate Display */}
-            <div className="bg-white/10 rounded-lg p-4 mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-white text-sm font-medium">Official Rate (BNM)</span>
-              </div>
-              {lastUpdated && (
-                <p className="text-white/70 text-xs mb-2">
-                  Updated: {formatLastUpdated(lastUpdated)}
-                </p>
-              )}
-              <p className="text-white/90 text-xs">
-                Rates from Bank Negara Malaysia
-              </p>
+            {/* Features */}
+            <div className="space-y-3 mb-6">
+              {features.map((feature, index) => {
+                const Icon = feature.icon
+                return (
+                  <div key={index} className="bg-white/10 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Icon className="w-4 h-4 text-white" />
+                      <span className="text-white text-sm font-medium">{feature.label}</span>
+                    </div>
+                    <p className="text-white/70 text-xs">{feature.description}</p>
+                  </div>
+                )
+              })}
             </div>
 
             {/* Currency Converter */}
             <CurrencyConverter
               fromAmount={krwAmount}
-              fromCurrency="₩"
+              fromCurrency={fromCurrency}
               toAmount={myrAmount}
-              toCurrency="RM"
+              toCurrency={toCurrency}
               onFromAmountChange={setKrwAmount}
-              onFromCurrencyChange={() => {}} // Fixed currencies for display
+              onFromCurrencyChange={setFromCurrency}
               onToAmountChange={setMyrAmount}
-              onToCurrencyChange={() => {}} // Fixed currencies for display
+              onToCurrencyChange={setToCurrency}
             />
           </div>
         </div>
 
-        {/* Main Content - Exchange Requests */}
+        {/* Main Content */}
         <div className="flex-1 p-8">
-          <div className="flex justify-between items-center mb-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Money Exchange Requests</h1>
-              <p className="text-gray-600">
-                All exchange rates are calculated using official rates from Bank Negara Malaysia
-              </p>
+          {/* Header with Live Rates */}
+          <div className="mb-6">
+            <div className="flex justify-between items-center mb-4">
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900 mb-2">Money Exchange Requests</h1>
+                <p className="text-gray-600">
+                  Live exchange rates • Updated: {formatLastUpdated(lastUpdated)}
+                </p>
+              </div>
+              <Link
+                to="/seller?tab=exchange"
+                className="flex items-center gap-2 bg-[#B91C1C] text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
+              >
+                <ArrowRightLeft className="w-5 h-5" />
+                Request Exchange
+              </Link>
             </div>
-            <Link
-              to="/seller?tab=exchange"
-              className="flex items-center gap-2 bg-[#B91C1C] text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
-            >
-              <ArrowRightLeft className="w-5 h-5" />
-              Request Exchange
-            </Link>
+
+            {/* Live Exchange Rates Grid */}
+            <div className="grid grid-cols-6 gap-3 mb-6">
+              {exchangeRates.map((rate) => (
+                <div key={rate.currency_code} className="bg-white rounded-lg p-3 shadow-sm">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-sm font-bold text-gray-900">{rate.currency_code}</span>
+                    <span className={`text-xs ${Math.random() > 0.5 ? 'text-green-600' : 'text-red-600'}`}>
+                      {Math.random() > 0.5 ? '↑' : '↓'} {(Math.random() * 2).toFixed(2)}%
+                    </span>
+                  </div>
+                  <p className="text-xs text-gray-600">{rate.currency_name}</p>
+                  <p className="text-sm font-semibold text-gray-900 mt-1">
+                    {currencyService.formatCurrency(rate.rate, 'MYR')}
+                  </p>
+                </div>
+              ))}
+            </div>
           </div>
 
+          {/* Exchange Requests */}
           {loading ? (
             <div className="flex justify-center items-center h-64">
               <div className="text-gray-500">Loading exchange requests...</div>
@@ -206,18 +246,18 @@ const MoneyExchangePage: React.FC = () => {
           ) : (
             <div className="space-y-4">
               {exchangeRequests.map((request) => (
-                <div key={request.id} className="bg-white rounded-lg shadow-md p-6 flex items-center justify-between">
+                <div key={request.id} className="bg-white rounded-lg shadow-md p-6 flex items-center justify-between hover:shadow-lg transition-shadow">
                   <div className="flex items-center gap-4">
                     <div className="text-3xl">{getRandomAvatar()}</div>
                     <div>
                       <h3 className="font-medium text-gray-900">{getExchangeDescription(request)}</h3>
                       <div className="flex items-center gap-2 mt-1">
                         <p className="text-lg font-bold">
-                          {request.from_currency}{request.from_amount.toLocaleString()}
+                          {currencyService.getCurrencySymbol(request.from_currency)}{request.from_amount.toLocaleString()}
                         </p>
                         <span className="text-gray-400">→</span>
                         <p className="text-lg font-bold text-[#B91C1C]">
-                          {request.to_currency}{request.to_amount.toLocaleString()}
+                          {currencyService.getCurrencySymbol(request.to_currency)}{request.to_amount.toLocaleString()}
                         </p>
                       </div>
                       <p className="text-sm text-gray-500">

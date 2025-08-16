@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Header from '../components/Header'
-import { ShoppingCart, Award, Users, MessageCircle, Target, Store, User, LogIn, Package, RefreshCw } from 'lucide-react'
+import { Store, ShoppingCart, RefreshCw, Target, Award, MessageCircle, Users, User, LogIn } from 'lucide-react'
 
 const MyPage: React.FC = () => {
   const { user, profile, signOut } = useAuth()
@@ -50,15 +50,19 @@ const MyPage: React.FC = () => {
   }
 
   const sidebarItems = [
-    { icon: ShoppingCart, label: 'Purchase History', active: true },
-    { icon: Package, label: 'Sold Items' },
-    { icon: RefreshCw, label: 'Exchange History' },
-    { icon: Award, label: 'Badges' },
-    { icon: Users, label: 'Chingu Lists' },
-    { icon: MessageCircle, label: 'Chat Lists' },
-    { icon: Target, label: 'Mission' },
-    { icon: Store, label: 'My Shop' }
+    { icon: Store, label: 'My Shop', path: '/my-shop' },
+    { icon: ShoppingCart, label: 'Purchase History', path: '/my-page', active: true },
+    { icon: RefreshCw, label: 'Exchange History', path: '/my-page' },
+    { icon: Target, label: 'Mission', path: '/my-page' },
+    { icon: Award, label: 'Badges', path: '/my-page' },
+    { icon: MessageCircle, label: 'Chat List', path: '/my-page' },
+    { icon: Users, label: 'Chingu List', path: '/my-page' }
   ]
+
+  const handleMyPageClick = () => {
+    // Navigate to MyPage with correct path
+    navigate('/my-page')
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -68,7 +72,12 @@ const MyPage: React.FC = () => {
         {/* Red Sidebar */}
         <div className="w-64 bg-[#B91C1C] min-h-screen">
           <div className="p-6">
-            <h1 className="text-white text-xl font-bold mb-6">MY PAGE</h1>
+            <h1 
+              onClick={handleMyPageClick}
+              className="text-white text-xl font-bold mb-6 cursor-pointer hover:opacity-90 transition-opacity"
+            >
+              MY PAGE
+            </h1>
             
             <div className="space-y-2">
               {sidebarItems.map((item, index) => {
@@ -76,6 +85,7 @@ const MyPage: React.FC = () => {
                 return (
                   <div
                     key={index}
+                    onClick={() => navigate(item.path)}
                     className={`flex items-center gap-3 p-3 text-white hover:bg-red-700 transition-colors cursor-pointer ${
                       item.active ? 'bg-red-700' : ''
                     }`}

@@ -10,6 +10,7 @@ import EditProductPage from './pages/EditProductPage'
 import ProductDetailPage from './pages/ProductDetailPage'
 import MoneyExchangePage from './pages/MoneyExchangePage'
 import MyPage from './pages/MyPage'
+import MyShopPage from './pages/MyShopPage'
 import './index.css'
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route path="/money-exchange" element={<MoneyExchangePage />} />
           <Route path="/my-page" element={<MyPage />} />
+          <Route path="/my-shop" element={<MyShopPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>

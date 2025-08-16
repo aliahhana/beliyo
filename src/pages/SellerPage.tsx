@@ -1,11 +1,16 @@
-import React, { useState, useRef } from 'react'
+import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
-import CurrencyConverter from '../components/CurrencyConverter'
-import { Plus, ArrowRightLeft, X, Upload, Star, MapPin, Camera } from 'lucide-react'
-import { supabase } from '../lib/supabase'
-import { useAuth } from '../hooks/useAuth'
 import LocationPicker from '../components/LocationPicker'
+import { MapPin, Upload, X } from 'lucide-react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../contexts/AuthContext'
+
+interface LocationData {
+  address: string
+  coordinates: [number, number]
+  verified: boolean
+}
 
 const categories = [
   { value: 'clothes', label: 'Clothes' },
@@ -19,128 +24,79 @@ const categories = [
   { value: 'others', label: 'Others' }
 ]
 
-const MAX_IMAGES = 5
-
-interface LocationData {
-  address: string
-  coordinates: [number, number]
-  verified: boolean
-}
-
 const SellerPage: React.FC = () => {
   const navigate = useNavigate()
-  const { user, loading: authLoading } = useAuth()
-  const [activeTab, setActiveTab] = useState<'sell' | 'exchange'>('sell')
-  const [loading, setLoading] = useState(false)
-  const [uploading, setUploading] = useState(false)
-  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
-  const [previewUrls, setPreviewUrls] = useState<string[]>([])
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const { user } = useAuth()
   const [formData, setFormData] = useState({
-    itemName: '',
-    category: 'others',
+    name: '',
     description: '',
-    condition: 5,
     price: '',
-    currency: '₩',
+    currency: 'RM',
+    category: 'others',
     location: '',
     latitude: null as number | null,
-    longitude: null as number | null
-  })
-  const [exchangeData, setExchangeData] = useState({
-    fromAmount: '',
-    fromCurrency: '₩',
-    toAmount: '',
-    toCurrency: 'RM',
-    notes: ''
+    longitude: null as number | null,
+    condition: 3,
+    images: [] as File[],
+    imagePreviews: [] as string[]
   })
   const [showLocationPicker, setShowLocationPicker] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      const files = Array.from(e.target.files)
-      const totalFiles = selectedFiles.length + files.length
-      
-      if (totalFiles > MAX_IMAGES) {
-        alert(`You can only upload up to ${MAX_IMAGES} images. Please select fewer images.`)
-        return
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    const validFiles = files.filter(file => {
+      if (file.size > 5 * 1024 * 1024) {
+        alert(`${file.name} is larger than 5MB and will be skipped`)
+        return false
       }
-      
-      // Validate file sizes (max 5MB each)
-      const oversizedFiles = files.filter(file => file.size > 5 * 1024 * 1024)
-      if (oversizedFiles.length > 0) {
-        alert('Some files are too large. Please select images under 5MB each.')
-        return
-      }
-      
-      const newFiles = [...selectedFiles, ...files]
-      setSelectedFiles(newFiles)
-      
-      // Create preview URLs for new files
-      const newUrls = files.map(file => URL.createObjectURL(file))
-      setPreviewUrls(prev => [...prev, ...newUrls])
+      return true
+    }).slice(0, 5 - formData.images.length)
+
+    if (validFiles.length > 0) {
+      const newPreviews = validFiles.map(file => URL.createObjectURL(file))
+      setFormData(prev => ({
+        ...prev,
+        images: [...prev.images, ...validFiles].slice(0, 5),
+        imagePreviews: [...prev.imagePreviews, ...newPreviews].slice(0, 5)
+      }))
+    }
+
+    if (formData.images.length + validFiles.length >= 5) {
+      alert('Maximum 5 images allowed')
     }
   }
 
   const removeImage = (index: number) => {
-    const newFiles = [...selectedFiles]
-    newFiles.splice(index, 1)
-    setSelectedFiles(newFiles)
-    
-    const newUrls = [...previewUrls]
-    URL.revokeObjectURL(newUrls[index])
-    newUrls.splice(index, 1)
-    setPreviewUrls(newUrls)
+    setFormData(prev => ({
+      ...prev,
+      images: prev.images.filter((_, i) => i !== index),
+      imagePreviews: prev.imagePreviews.filter((_, i) => i !== index)
+    }))
   }
 
-  const uploadImages = async (userId: string) => {
-    if (!selectedFiles.length) return []
-    
-    setUploading(true)
-    const uploadedUrls: string[] = []
-    
-    try {
-      for (let i = 0; i < selectedFiles.length; i++) {
-        const file = selectedFiles[i]
-        const fileExt = file.name.split('.').pop()
-        const fileName = `${userId}-${Date.now()}-${i}.${fileExt}`
-        const filePath = `product-images/${fileName}`
-        
-        const { data, error } = await supabase.storage
-          .from('product-images')
-          .upload(filePath, file)
-        
-        if (error) throw error
-        
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from('product-images')
-          .getPublicUrl(data.path)
-        
-        uploadedUrls.push(publicUrl)
-      }
-      
-      return uploadedUrls
-    } catch (error) {
-      console.error('Error uploading images:', error)
-      throw error
-    } finally {
-      setUploading(false)
-    }
+  const handleLocationSelect = (locationData: LocationData) => {
+    setFormData(prev => ({
+      ...prev,
+      location: locationData.address,
+      latitude: locationData.coordinates[0],
+      longitude: locationData.coordinates[1]
+    }))
+    setShowLocationPicker(false)
   }
 
-  const handleSellSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
     if (!user) {
-      alert('Please sign in to sell items')
+      alert('Please sign in to post items')
       navigate('/login')
       return
     }
 
-    // Validate required fields
-    if (!formData.itemName.trim()) {
-      alert('Please enter an item name')
+    // Validation
+    if (!formData.name.trim()) {
+      alert('Please enter a product name')
       return
     }
 
@@ -149,375 +105,293 @@ const SellerPage: React.FC = () => {
       return
     }
 
-    if (!formData.location.trim()) {
-      alert('Please select a location')
+    if (formData.currency !== 'FREE' && (!formData.price || parseFloat(formData.price) < 0)) {
+      alert('Please enter a valid price')
       return
     }
 
-    // Validate price for non-free items
-    if (formData.currency !== 'FREE') {
-      if (!formData.price || parseFloat(formData.price) <= 0) {
-        alert('Please enter a valid price')
-        return
-      }
+    if (formData.images.length === 0) {
+      alert('Please upload at least one image')
+      return
     }
 
-    setLoading(true)
-    
-    try {
-      // Upload images first
-      const imageUrls = await uploadImages(user.id)
+    setIsSubmitting(true)
 
+    try {
+      // Upload images
+      const imageUrls: string[] = []
+      
+      for (const image of formData.images) {
+        const fileExt = image.name.split('.').pop()
+        const fileName = `${user.id}-${Date.now()}-${Math.random()}.${fileExt}`
+        
+        const { error: uploadError, data: uploadData } = await supabase.storage
+          .from('product-images')
+          .upload(fileName, image)
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError)
+          throw uploadError
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('product-images')
+          .getPublicUrl(fileName)
+
+        imageUrls.push(publicUrl)
+      }
+
+      // Create product - IMPORTANT: Use user_id instead of seller_id
       const productData = {
-        seller_id: user.id,
-        name: formData.itemName.trim(),
+        user_id: user.id,  // Changed from seller_id to user_id
+        name: formData.name.trim(),
+        title: formData.name.trim(),
         description: formData.description.trim(),
-        price: formData.currency === 'FREE' ? 0 : parseFloat(formData.price),
+        price: formData.currency === 'FREE' ? 0 : parseFloat(formData.price) || 0,
         currency: formData.currency,
         category: formData.category,
-        condition: formData.condition,
-        location: formData.location.trim(),
-        latitude: formData.latitude,
-        longitude: formData.longitude,
-        image_url: imageUrls[0] || null, // Keep first image for backward compatibility
-        images: imageUrls, // Store all images
+        condition: formData.condition,  // Send as integer (1-5)
+        image_url: imageUrls[0] || null,
+        images: imageUrls,
         image_count: imageUrls.length,
-        status: 'available'
+        status: 'available',
+        is_sold: false,
+        location: formData.location ? {
+          address: formData.location,
+          coordinates: {
+            lat: formData.latitude || 0,
+            lng: formData.longitude || 0
+          }
+        } : null,
+        latitude: formData.latitude,
+        longitude: formData.longitude
       }
+
+      console.log('Creating product with data:', productData)
 
       const { data, error } = await supabase
         .from('products')
         .insert([productData])
         .select()
+        .single()
 
-      if (error) throw error
+      if (error) {
+        console.error('Database error:', error)
+        throw error
+      }
 
-      alert('Item posted successfully!')
-      
-      // Reset form
-      setFormData({
-        itemName: '',
-        category: 'others',
-        description: '',
-        condition: 5,
-        price: '',
-        currency: '₩',
-        location: '',
-        latitude: null,
-        longitude: null
-      })
-      setSelectedFiles([])
-      setPreviewUrls([])
-      
-      // Force refresh of Shop page
-      navigate('/shop', { replace: true })
+      console.log('Product created successfully:', data)
+      alert('Product posted successfully!')
+      navigate('/shop')
     } catch (error: any) {
-      console.error('Error posting item:', error)
-      alert(`Error posting item: ${error.message || 'Please try again.'}`)
+      console.error('Error posting product:', error)
+      alert(`Failed to post product: ${error.message || 'Unknown error'}`)
     } finally {
-      setLoading(false)
+      setIsSubmitting(false)
     }
   }
 
-  const renderStars = () => {
-    return [1, 2, 3, 4, 5].map((star) => (
-      <button
-        key={star}
-        type="button"
-        onClick={() => setFormData({...formData, condition: star})}
-        className={`p-1 ${star <= formData.condition ? 'text-yellow-500' : 'text-gray-300'}`}
-      >
-        <Star className="w-5 h-5 fill-current" />
-      </button>
-    ))
-  }
-
-  const handleLocationSelect = (locationData: LocationData) => {
-    console.log('Location selected:', locationData)
-    
-    try {
-      setFormData(prev => ({
-        ...prev,
-        location: locationData.address,
-        latitude: locationData.coordinates[0],
-        longitude: locationData.coordinates[1]
-      }))
-      setShowLocationPicker(false)
-    } catch (error) {
-      console.error('Error handling location selection:', error)
-      alert('Error selecting location. Please try again.')
+  const getConditionLabel = (value: number): string => {
+    const labels: { [key: number]: string } = {
+      1: 'Poor',
+      2: 'Fair',
+      3: 'Good',
+      4: 'Very Good',
+      5: 'Excellent'
     }
+    return labels[value] || 'Good'
   }
-
-  const handleCloseLocationPicker = () => {
-    console.log('Closing location picker')
-    setShowLocationPicker(false)
-  }
-
-  const canAddMoreImages = selectedFiles.length < MAX_IMAGES
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header variant="shop" />
+      <Header variant="seller" />
       
-      <div className="flex">
-        {/* Sidebar */}
-        <div className="w-64 bg-[#B91C1C] min-h-screen">
-          <div className="p-6">
-            <h2 className="text-white text-xl font-bold mb-6">SELLER DASHBOARD</h2>
-            <nav className="space-y-2">
-              <button
-                onClick={() => setActiveTab('sell')}
-                className={`block w-full text-left px-4 py-3 text-white hover:bg-red-700 transition-colors ${
-                  activeTab === 'sell' ? 'bg-red-700' : ''
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <Plus className="w-5 h-5" />
-                  <span className="font-medium">Sell Item</span>
-                </div>
-              </button>
-              <button
-                onClick={() => setActiveTab('exchange')}
-                className={`block w-full text-left px-4 py-3 text-white hover:bg-red-700 transition-colors ${
-                  activeTab === 'exchange' ? 'bg-red-700' : ''
-                }`}
-              >
-                <div className="flex items-center gap-3">
-                  <ArrowRightLeft className="w-5 h-5" />
-                  <span className="font-medium">Currency Exchange</span>
-                </div>
-              </button>
-            </nav>
+      <div className="max-w-4xl mx-auto p-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-8">Post Your Item</h1>
+        
+        <form onSubmit={handleSubmit} className="bg-white rounded-lg shadow-lg p-8 space-y-6">
+          {/* Product Name */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Product Name *
+            </label>
+            <input
+              type="text"
+              required
+              value={formData.name}
+              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              placeholder="Enter product name"
+            />
           </div>
-        </div>
 
-        {/* Main Content */}
-        <div className="flex-1 p-8">
-          {activeTab === 'sell' ? (
-            <form onSubmit={handleSellSubmit} className="bg-white rounded-lg shadow-lg p-8 max-w-2xl mx-auto">
-              <h1 className="text-2xl font-bold mb-6">Sell Your Item</h1>
-              
-              <div className="space-y-6">
-                {/* Item Name */}
-                <div>
-                  <label htmlFor="itemName" className="block text-gray-700 mb-2">
-                    Item Name
-                  </label>
-                  <input
-                    type="text"
-                    id="itemName"
-                    value={formData.itemName}
-                    onChange={(e) => setFormData({...formData, itemName: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    placeholder="Enter item name"
-                    required
-                  />
-                </div>
+          {/* Category */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Category *
+            </label>
+            <select
+              required
+              value={formData.category}
+              onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value }))}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            >
+              {categories.map(cat => (
+                <option key={cat.value} value={cat.value}>
+                  {cat.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-                {/* Category */}
-                <div>
-                  <label htmlFor="category" className="block text-gray-700 mb-2">
-                    Category
-                  </label>
-                  <select
-                    id="category"
-                    value={formData.category}
-                    onChange={(e) => setFormData({...formData, category: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                  >
-                    {categories.map(cat => (
-                      <option key={cat.value} value={cat.value}>
-                        {cat.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+          {/* Price */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Price
+            </label>
+            <div className="flex gap-2">
+              <select
+                value={formData.currency}
+                onChange={(e) => setFormData(prev => ({ ...prev, currency: e.target.value }))}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              >
+                <option value="RM">RM</option>
+                <option value="₩">₩ (KRW)</option>
+                <option value="FREE">FREE</option>
+              </select>
+              {formData.currency !== 'FREE' && (
+                <input
+                  type="number"
+                  value={formData.price}
+                  onChange={(e) => setFormData(prev => ({ ...prev, price: e.target.value }))}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  placeholder="Enter price"
+                  min="0"
+                  step="0.01"
+                />
+              )}
+            </div>
+          </div>
 
-                {/* Description */}
-                <div>
-                  <label htmlFor="description" className="block text-gray-700 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({...formData, description: e.target.value})}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    rows={4}
-                    placeholder="Describe your item in detail..."
-                    required
-                  />
-                </div>
+          {/* Condition */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Condition
+            </label>
+            <div className="flex gap-2">
+              {[1, 2, 3, 4, 5].map(star => (
+                <button
+                  key={star}
+                  type="button"
+                  onClick={() => setFormData(prev => ({ ...prev, condition: star }))}
+                  className={`text-2xl ${star <= formData.condition ? 'text-yellow-400' : 'text-gray-300'} hover:text-yellow-400 transition-colors`}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              {getConditionLabel(formData.condition)}
+            </p>
+          </div>
 
-                {/* Condition */}
-                <div>
-                  <label className="block text-gray-700 mb-2">
-                    Condition
-                  </label>
-                  <div className="flex items-center">
-                    {renderStars()}
-                    <span className="ml-2 text-gray-600">
-                      {formData.condition} {formData.condition === 1 ? 'star' : 'stars'}
-                    </span>
-                  </div>
-                </div>
+          {/* Description */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Description *
+            </label>
+            <textarea
+              required
+              value={formData.description}
+              onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
+              rows={4}
+              placeholder="Describe your product"
+            />
+          </div>
 
-                {/* Price */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="price" className="block text-gray-700 mb-2">
-                      Price
-                    </label>
-                    <input
-                      type="number"
-                      id="price"
-                      value={formData.price}
-                      onChange={(e) => setFormData({...formData, price: e.target.value})}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                      placeholder="Enter price"
-                      min="0"
-                      step="0.01"
-                      required={formData.currency !== 'FREE'}
+          {/* Location */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Pickup Location
+            </label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowLocationPicker(true)}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+              >
+                <MapPin className="w-4 h-4" />
+                Pick on Map
+              </button>
+              <span className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-white">
+                {formData.location || 'No location selected'}
+              </span>
+            </div>
+          </div>
+
+          {/* Image Upload */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Product Images * (Max 5)
+            </label>
+            
+            {/* Image Previews */}
+            {formData.imagePreviews.length > 0 && (
+              <div className="grid grid-cols-5 gap-2 mb-4">
+                {formData.imagePreviews.map((preview, index) => (
+                  <div key={index} className="relative">
+                    <img
+                      src={preview}
+                      alt={`Preview ${index + 1}`}
+                      className="w-full h-24 object-cover rounded-lg"
                     />
-                  </div>
-                  <div>
-                    <label htmlFor="currency" className="block text-gray-700 mb-2">
-                      Currency
-                    </label>
-                    <select
-                      id="currency"
-                      value={formData.currency}
-                      onChange={(e) => setFormData({...formData, currency: e.target.value})}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                    >
-                      <option value="₩">KRW (₩)</option>
-                      <option value="RM">MYR (RM)</option>
-                      <option value="FREE">Free</option>
-                    </select>
-                  </div>
-                </div>
-
-                {/* Location */}
-                <div>
-                  <label className="block text-gray-700 mb-2">
-                    Location
-                  </label>
-                  <div className="flex gap-2">
                     <button
                       type="button"
-                      onClick={() => setShowLocationPicker(true)}
-                      className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
+                      onClick={() => removeImage(index)}
+                      className="absolute top-1 right-1 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
                     >
-                      <MapPin className="w-4 h-4" />
-                      Pick on Map
+                      <X className="w-3 h-3" />
                     </button>
-                    <span className="flex-1 px-4 py-2 border border-gray-300 rounded-lg bg-white">
-                      {formData.location || 'No location selected'}
-                    </span>
                   </div>
-                </div>
-
-                {/* Image Upload */}
-                <div>
-                  <label className="block text-gray-700 mb-2">
-                    Item Pictures ({selectedFiles.length}/{MAX_IMAGES})
-                  </label>
-                  
-                  {/* Image Grid */}
-                  {previewUrls.length > 0 && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
-                      {previewUrls.map((url, index) => (
-                        <div key={index} className="relative group">
-                          <img 
-                            src={url} 
-                            alt={`Preview ${index + 1}`}
-                            className="w-full h-32 object-cover rounded-lg border-2 border-gray-200"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => removeImage(index)}
-                            className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                          <div className="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white text-xs px-2 py-1 rounded">
-                            {index + 1}
-                          </div>
-                        </div>
-                      ))}
-                      
-                      {/* Add More Button */}
-                      {canAddMoreImages && (
-                        <button
-                          type="button"
-                          onClick={() => fileInputRef.current?.click()}
-                          className="h-32 border-2 border-dashed border-gray-300 rounded-lg flex flex-col items-center justify-center text-gray-500 hover:border-gray-400 hover:text-gray-600 transition-colors"
-                        >
-                          <Plus className="w-6 h-6 mb-1" />
-                          <span className="text-sm">Add More</span>
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  
-                  {/* Upload Area (shown when no images) */}
-                  {previewUrls.length === 0 && (
-                    <div 
-                      className="border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer hover:bg-gray-50 transition-colors"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <Camera className="w-12 h-12 mx-auto text-gray-400 mb-3" />
-                      <p className="text-gray-600 font-medium mb-1">Add Item Pictures</p>
-                      <p className="text-sm text-gray-500 mb-2">
-                        Upload up to {MAX_IMAGES} images to showcase your item
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        JPEG, PNG (max 5MB each) • Click or drag & drop
-                      </p>
-                    </div>
-                  )}
-                  
-                  {/* File Input */}
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    onChange={handleFileChange}
-                    className="hidden"
-                    accept="image/jpeg,image/png,image/jpg"
-                    multiple
-                  />
-                  
-                  {/* Upload Status */}
-                  {uploading && (
-                    <div className="mt-2 text-sm text-blue-600 flex items-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
-                      Uploading images...
-                    </div>
-                  )}
-                  
-                  {/* Image Guidelines */}
-                  {selectedFiles.length > 0 && (
-                    <div className="mt-2 text-xs text-gray-500">
-                      <p>• First image will be used as the main product image</p>
-                      <p>• You can reorder images by removing and re-adding them</p>
-                    </div>
-                  )}
-                </div>
-
-                <button 
-                  type="submit"
-                  disabled={loading || uploading}
-                  className="w-full bg-red-500 text-white py-3 px-4 rounded-lg hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                >
-                  {loading ? 'Posting Item...' : uploading ? 'Uploading Images...' : 'Post Item'}
-                </button>
+                ))}
               </div>
-            </form>
-          ) : (
-            <CurrencyConverter />
-          )}
-        </div>
+            )}
+
+            {formData.images.length < 5 && (
+              <label className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors cursor-pointer w-fit">
+                <Upload className="w-4 h-4" />
+                Upload Images ({formData.images.length}/5)
+                <input
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageChange}
+                  className="hidden"
+                />
+              </label>
+            )}
+            <p className="text-xs text-gray-500 mt-1">Max 5 images, 5MB each</p>
+          </div>
+
+          {/* Submit Button */}
+          <div className="flex gap-4">
+            <button
+              type="button"
+              onClick={() => navigate('/shop')}
+              className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="flex-1 px-6 py-3 bg-[#B91C1C] text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+            >
+              {isSubmitting ? 'Posting...' : 'Post Item'}
+            </button>
+          </div>
+        </form>
       </div>
 
       {/* Location Picker Modal */}
@@ -526,7 +400,7 @@ const SellerPage: React.FC = () => {
           onLocationSelect={handleLocationSelect}
           initialLocation={formData.location}
           isOpen={showLocationPicker}
-          onClose={handleCloseLocationPicker}
+          onClose={() => setShowLocationPicker(false)}
         />
       )}
     </div>

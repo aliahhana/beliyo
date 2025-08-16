@@ -18,7 +18,7 @@ interface Product {
   description: string
   category: string
   status: string
-  location: string
+  location: string | { address?: string; coordinates?: any }
   created_at: string
 }
 
@@ -49,6 +49,34 @@ const getCategoryDatabaseValues = (categoryKey: string): string[] => {
     'others': ['others', 'Others']
   }
   return categoryMap[categoryKey] || [categoryKey]
+}
+
+// Helper function to format location display
+const formatLocation = (location: string | { address?: string; coordinates?: any } | null | undefined): string => {
+  if (!location) return 'Location not specified'
+  
+  // If it's already a string, check if it's JSON
+  if (typeof location === 'string') {
+    // Try to parse if it looks like JSON
+    if (location.startsWith('{')) {
+      try {
+        const parsed = JSON.parse(location)
+        return parsed.address || 'Location not specified'
+      } catch {
+        // If parsing fails, return as is (might be a plain address string)
+        return location
+      }
+    }
+    // Plain string address
+    return location
+  }
+  
+  // If it's an object with address property
+  if (typeof location === 'object' && location.address) {
+    return location.address
+  }
+  
+  return 'Location not specified'
 }
 
 // Image carousel component for products with multiple images
@@ -275,7 +303,7 @@ const ShopPage: React.FC = () => {
         .from('products')
         .delete()
         .eq('id', productToDelete.id)
-        .eq('seller_id', user?.id) // Ensure user can only delete their own products
+        .eq('user_id', user?.id) // Changed from seller_id to user_id
 
       if (error) throw error
 
@@ -372,9 +400,9 @@ const ShopPage: React.FC = () => {
                 <button
                   key={category.key}
                   onClick={() => handleCategoryClick(category.key)}
-                  className={`block w-full text-left px-4 py-3 text-white hover:bg-red-700 transition-colors font-medium ${
-                    selectedCategory === category.key && !isSearching ? 'bg-red-700' : ''
-                  }`}
+                  className={`block w-full text-left px-4 py-3 transition-colors font-medium ${
+                    selectedCategory === category.key && !isSearching ? 'bg-red-700 text-white' : ''
+                  } ${category.key === 'all' ? 'text-white hover:bg-red-700 mb-4' : 'text-white hover:bg-red-700'}`}
                 >
                   {category.label}
                 </button>
@@ -531,7 +559,7 @@ const ShopPage: React.FC = () => {
                           </p>
                           <div className="flex justify-between items-center mt-2">
                             <span className={`text-sm ${product.status === 'sold' ? 'text-gray-400' : 'text-gray-500'}`}>
-                              {product.location || 'Location not specified'}
+                              {formatLocation(product.location)}
                             </span>
                             <span className={`text-sm ${product.status === 'sold' ? 'text-gray-400' : 'text-gray-500'}`}>
                               {product.timeAgo}

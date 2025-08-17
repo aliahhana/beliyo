@@ -225,7 +225,7 @@ const MyPage: React.FC = () => {
                   <User className="w-8 h-8 text-white" />
                 </div>
                 <div>
-                  <h2 className="text-xl font-bold text-black">Hi, *{profile?.user_id || 'user name'}*!</h2>
+                  <h2 className="text-xl font-bold text-black">Hi, {profile?.user_id || 'user name'}!</h2>
                   <p className="text-red-600 italic text-sm">"Back on duty - time to be someone's hero!"</p>
                 </div>
               </div>
@@ -399,7 +399,7 @@ const MyPage: React.FC = () => {
               <User className="w-8 h-8 text-white" />
             </div>
             <div>
-              <h2 className="text-2xl font-bold text-black">Hi, *{profile?.user_id || 'user name'}*!</h2>
+              <h2 className="text-2xl font-bold text-black">Hi, {profile?.user_id || 'user name'}!</h2>
               <p className="text-red-600 italic">"Back on duty - time to be someone's hero!"</p>
             </div>
           </div>

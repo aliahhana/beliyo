@@ -66,7 +66,7 @@ const MyPage: React.FC = () => {
   const sidebarItems = [
     { icon: Store, label: 'My Shop', path: '/my-shop' },
     { icon: ShoppingCart, label: 'Purchase History', path: '/my-page', active: true },
-    { icon: RefreshCw, label: 'Exchange History', path: '/my-page' },
+    { icon: RefreshCw, label: 'Exchange History', path: '/exchange-history' },
     { icon: Target, label: 'Mission', path: '/my-page' },
     { icon: Award, label: 'Badges', path: '/my-page' },
     { icon: MessageCircle, label: 'Chat List', path: '/my-page' },
@@ -110,7 +110,7 @@ const MyPage: React.FC = () => {
             >
               BeliYo!
             </button>
-            <div className="text-xl font-medium">My Page</div>
+            <div className="text-xl font-medium">MY PAGE</div>
             <button 
               onClick={() => setShowSearchModal(true)}
               className="hover:text-red-200 transition-colors"
@@ -137,7 +137,10 @@ const MyPage: React.FC = () => {
                   <span className="font-medium text-xs">Purchase History</span>
                 </button>
                 
-                <button className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors">
+                <button 
+                  onClick={() => navigate('/exchange-history')}
+                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
+                >
                   <RefreshCw className="w-6 h-6" />
                   <span className="font-medium text-xs">Exchange History</span>
                 </button>
@@ -365,7 +368,7 @@ const MyPage: React.FC = () => {
               onClick={handleMyPageClick}
               className="text-white text-xl font-bold mb-6 cursor-pointer hover:opacity-90 transition-opacity"
             >
-              My Page
+              MY PAGE
             </h1>
             
             <div className="space-y-2">
@@ -461,19 +464,6 @@ const MyPage: React.FC = () => {
                   </div>
                   
                   <p className="text-red-500 italic text-center mb-2">Add more badges by completing missions!</p>
-                  <p className="text-center font-bold text-lg">OR</p>
-                  
-                  <div className="flex items-center justify-between mt-4">
-                    <div>
-                      <p className="text-red-500 text-sm">Accomplishments: 0, Sass level: 100</p>
-                      <div className="flex items-center gap-2 mt-2">
-                        <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
-                        <span className="text-sm text-gray-600">It's quiet... too quiet...</span>
-                        <div className="w-8 h-8 bg-gray-300 rounded-full"></div>
-                      </div>
-                    </div>
-                    <div className="w-16 h-16 bg-orange-400 rounded-lg"></div>
-                  </div>
                 </div>
               </div>
 

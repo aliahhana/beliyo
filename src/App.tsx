@@ -9,8 +9,11 @@ import SellerPage from './pages/SellerPage'
 import EditProductPage from './pages/EditProductPage'
 import ProductDetailPage from './pages/ProductDetailPage'
 import MoneyExchangePage from './pages/MoneyExchangePage'
+import RequestExchangePage from './pages/RequestExchangePage'
+import EditRequestExchangePage from './pages/EditRequestExchangePage'
 import MyPage from './pages/MyPage'
 import MyShopPage from './pages/MyShopPage'
+import ExchangeHistoryPage from './pages/ExchangeHistoryPage'
 import './index.css'
 
 function App() {
@@ -26,8 +29,11 @@ function App() {
           <Route path="/edit-product/:id" element={<EditProductPage />} />
           <Route path="/product/:id" element={<ProductDetailPage />} />
           <Route path="/money-exchange" element={<MoneyExchangePage />} />
+          <Route path="/request-exchange" element={<RequestExchangePage />} />
+          <Route path="/edit-exchange/:id" element={<EditRequestExchangePage />} />
           <Route path="/my-page" element={<MyPage />} />
           <Route path="/my-shop" element={<MyShopPage />} />
+          <Route path="/exchange-history" element={<ExchangeHistoryPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Router>

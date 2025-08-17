@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react'
-import { ArrowDownUp, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react'
+import { ArrowUpDown } from 'lucide-react'
 import { currencyService } from '../services/currencyService'
 
 interface CurrencyConverterProps {
@@ -7,11 +7,10 @@ interface CurrencyConverterProps {
   fromCurrency: string
   toAmount: string
   toCurrency: string
-  onFromAmountChange: (amount: string) => void
+  onFromAmountChange: (value: string) => void
   onFromCurrencyChange: (currency: string) => void
-  onToAmountChange: (amount: string) => void
+  onToAmountChange: (value: string) => void
   onToCurrencyChange: (currency: string) => void
-  disabled?: boolean
 }
 
 const CurrencyConverter: React.FC<CurrencyConverterProps> = ({
@@ -22,213 +21,153 @@ const CurrencyConverter: React.FC<CurrencyConverterProps> = ({
   onFromAmountChange,
   onFromCurrencyChange,
   onToAmountChange,
-  onToCurrencyChange,
-  disabled = false
+  onToCurrencyChange
 }) => {
-  const [exchangeRate, setExchangeRate] = useState<number>(0)
-  const [lastUpdated, setLastUpdated] = useState<string>('')
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string>('')
-  const [rateChange, setRateChange] = useState<number>(0)
+  const [isConverting, setIsConverting] = useState(false)
+  const [realTimeRate, setRealTimeRate] = useState('1 ₩ = RM 0.0031')
+  const [lastUpdated, setLastUpdated] = useState('')
 
-  // Load exchange rate on mount and when currencies change
+  // Update real-time rate display
   useEffect(() => {
-    loadExchangeRate()
-  }, [fromCurrency, toCurrency])
-
-  // Auto-convert when from amount changes
-  useEffect(() => {
-    if (fromAmount && exchangeRate > 0) {
-      const amount = parseFloat(fromAmount)
-      if (!isNaN(amount)) {
-        const converted = amount * exchangeRate
-        onToAmountChange(converted.toFixed(toCurrency === '₩' ? 0 : 2))
+    const updateRealTimeRate = async () => {
+      try {
+        const rate = await currencyService.getRealTimeRate(fromCurrency, toCurrency)
+        setRealTimeRate(rate)
+        
+        const lastUpdate = await currencyService.getLastUpdated()
+        const date = new Date(lastUpdate)
+        setLastUpdated(date.toLocaleString('en-US', {
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        }))
+      } catch (error) {
+        console.error('Error updating real-time rate:', error)
       }
     }
-  }, [fromAmount, exchangeRate, toCurrency, onToAmountChange])
 
-  const loadExchangeRate = async () => {
-    if (fromCurrency === toCurrency) {
-      setExchangeRate(1)
-      return
+    updateRealTimeRate()
+    
+    // Update every 30 seconds for real-time feel
+    const interval = setInterval(updateRealTimeRate, 30000)
+    return () => clearInterval(interval)
+  }, [fromCurrency, toCurrency])
+
+  // Auto-convert when amount or currencies change
+  useEffect(() => {
+    const convertAmount = async () => {
+      if (!fromAmount || fromAmount === '0' || isNaN(Number(fromAmount))) {
+        onToAmountChange('0')
+        return
+      }
+
+      setIsConverting(true)
+      try {
+        const converted = await currencyService.convertCurrency(
+          Number(fromAmount),
+          fromCurrency,
+          toCurrency
+        )
+        onToAmountChange(converted.toFixed(fromCurrency === '₩' && toCurrency === 'RM' ? 4 : 2))
+      } catch (error) {
+        console.error('Error converting currency:', error)
+        // Fallback conversion
+        const fallbackRate = fromCurrency === '₩' && toCurrency === 'RM' ? 0.00339 : 295.32
+        const converted = Number(fromAmount) * fallbackRate
+        onToAmountChange(converted.toFixed(fromCurrency === '₩' && toCurrency === 'RM' ? 4 : 2))
+      } finally {
+        setIsConverting(false)
+      }
     }
 
-    setLoading(true)
-    setError('')
-    
-    try {
-      const rate = await currencyService.getExchangeRate(fromCurrency, toCurrency)
-      const lastUpdate = await currencyService.getLastUpdated()
-      
-      // Calculate rate change (mock data for demo)
-      const previousRate = exchangeRate || rate
-      const change = ((rate - previousRate) / previousRate) * 100
-      
-      setExchangeRate(rate)
-      setLastUpdated(lastUpdate)
-      setRateChange(change)
-    } catch (err) {
-      console.error('Error loading exchange rate:', err)
-      setError('Failed to load exchange rate')
-    } finally {
-      setLoading(false)
-    }
-  }
+    const debounceTimer = setTimeout(convertAmount, 300)
+    return () => clearTimeout(debounceTimer)
+  }, [fromAmount, fromCurrency, toCurrency])
 
-  const handleSwapCurrencies = () => {
-    if (disabled) return
+  const swapCurrencies = () => {
+    const tempCurrency = fromCurrency
+    const tempAmount = fromAmount
     
-    // Swap currencies
     onFromCurrencyChange(toCurrency)
-    onToCurrencyChange(fromCurrency)
-    
-    // Swap amounts
+    onToCurrencyChange(tempCurrency)
     onFromAmountChange(toAmount)
-    onToAmountChange(fromAmount)
-  }
-
-  const formatLastUpdated = (dateString: string) => {
-    try {
-      const date = new Date(dateString)
-      return date.toLocaleString('en-US', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      })
-    } catch {
-      return 'Just now'
-    }
-  }
-
-  const formatExchangeRate = (rate: number) => {
-    if (toCurrency === '₩' || toCurrency === 'KRW') {
-      return rate.toFixed(2)
-    }
-    return rate.toFixed(4)
+    onToAmountChange(tempAmount)
   }
 
   return (
-    <div className="space-y-4">
-      {/* Exchange Rate Display */}
-      <div className="bg-white/10 rounded-lg p-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <span className="text-white text-sm font-medium">
-              Live Exchange Rate
-            </span>
-            {loading && <RefreshCw className="w-4 h-4 text-white animate-spin" />}
-          </div>
-          <button
-            onClick={loadExchangeRate}
-            disabled={loading || disabled}
-            className="text-white/70 hover:text-white transition-colors disabled:opacity-50"
-            title="Refresh rate"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+    <div className="space-y-3">
+      {/* Real-time Rate Display */}
+      <div className="text-center text-white mb-4">
+        <div className="text-lg font-medium mb-1">{realTimeRate}</div>
+        <div className="text-sm opacity-90">
+          {lastUpdated ? `Updated: ${lastUpdated}` : 'Live rates'}
         </div>
-        
-        {error ? (
-          <p className="text-red-200 text-sm">{error}</p>
-        ) : (
-          <>
-            <div className="flex items-center gap-2">
-              <p className="text-white text-sm font-semibold">
-                1 {fromCurrency} = {formatExchangeRate(exchangeRate)} {toCurrency}
-              </p>
-              {rateChange !== 0 && (
-                <div className={`flex items-center gap-1 ${rateChange > 0 ? 'text-green-300' : 'text-red-300'}`}>
-                  {rateChange > 0 ? (
-                    <TrendingUp className="w-3 h-3" />
-                  ) : (
-                    <TrendingDown className="w-3 h-3" />
-                  )}
-                  <span className="text-xs">
-                    {Math.abs(rateChange).toFixed(2)}%
-                  </span>
-                </div>
-              )}
-            </div>
-            {lastUpdated && (
-              <p className="text-white/70 text-xs mt-1">
-                Updated: {formatLastUpdated(lastUpdated)}
-              </p>
-            )}
-          </>
-        )}
       </div>
 
       {/* From Currency */}
-      <div className="flex items-center gap-3">
+      <div className="relative">
         <input
           type="number"
           value={fromAmount}
           onChange={(e) => onFromAmountChange(e.target.value)}
-          className="bg-white/20 border border-white/30 rounded-lg px-4 py-2 text-white placeholder-white/50 flex-1"
+          className="w-full bg-white/20 text-white placeholder-white/70 px-4 py-3 rounded-lg border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 text-lg font-medium"
           placeholder="Enter amount"
           min="0"
-          step="0.01"
-          disabled={disabled}
+          step="any"
         />
-        <select
-          value={fromCurrency}
-          onChange={(e) => onFromCurrencyChange(e.target.value)}
-          className="bg-white/20 border border-white/30 rounded-lg px-4 py-2 text-white"
-          disabled={disabled}
-        >
-          <option value="₩" className="text-black">KRW (₩)</option>
-          <option value="RM" className="text-black">MYR (RM)</option>
-          <option value="$" className="text-black">USD ($)</option>
-        </select>
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+          <select
+            value={fromCurrency}
+            onChange={(e) => onFromCurrencyChange(e.target.value)}
+            className="bg-transparent text-white text-sm font-bold focus:outline-none cursor-pointer"
+          >
+            <option value="₩" className="bg-[#B91C1C] text-white">₩</option>
+            <option value="RM" className="bg-[#B91C1C] text-white">RM</option>
+          </select>
+        </div>
       </div>
 
       {/* Swap Button */}
       <div className="flex justify-center">
         <button
-          onClick={handleSwapCurrencies}
-          disabled={disabled}
-          className="p-2 text-white hover:bg-white/10 rounded-full transition-colors disabled:opacity-50"
-          title="Swap currencies"
+          onClick={swapCurrencies}
+          className="p-2 text-white hover:bg-white/20 rounded-full transition-colors"
+          disabled={isConverting}
         >
-          <ArrowDownUp className="w-6 h-6" />
+          <ArrowUpDown className={`w-5 h-5 ${isConverting ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
       {/* To Currency */}
-      <div className="flex items-center gap-3">
+      <div className="relative">
         <input
           type="number"
           value={toAmount}
           onChange={(e) => onToAmountChange(e.target.value)}
-          className="bg-white/20 border border-white/30 rounded-lg px-4 py-2 text-white placeholder-white/50 flex-1"
+          className="w-full bg-white/20 text-white placeholder-white/70 px-4 py-3 rounded-lg border border-white/30 focus:outline-none focus:ring-2 focus:ring-white/50 text-lg font-medium"
           placeholder="Converted amount"
-          min="0"
-          step="0.01"
-          disabled={disabled}
+          readOnly
         />
-        <select
-          value={toCurrency}
-          onChange={(e) => onToCurrencyChange(e.target.value)}
-          className="bg-white/20 border border-white/30 rounded-lg px-4 py-2 text-white"
-          disabled={disabled}
-        >
-          <option value="RM" className="text-black">MYR (RM)</option>
-          <option value="₩" className="text-black">KRW (₩)</option>
-          <option value="$" className="text-black">USD ($)</option>
-        </select>
+        <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+          <select
+            value={toCurrency}
+            onChange={(e) => onToCurrencyChange(e.target.value)}
+            className="bg-transparent text-white text-sm font-bold focus:outline-none cursor-pointer"
+          >
+            <option value="₩" className="bg-[#B91C1C] text-white">₩</option>
+            <option value="RM" className="bg-[#B91C1C] text-white">RM</option>
+          </select>
+        </div>
       </div>
 
-      {/* Data Source */}
-      <div className="text-center">
-        <p className="text-white/60 text-xs">
-          Real-time rates from global currency markets
-        </p>
-        <p className="text-white/40 text-xs mt-1">
-          Powered by Exchange Rate API
-        </p>
-      </div>
+      {/* Loading indicator */}
+      {isConverting && (
+        <div className="text-center text-white/70 text-sm">
+          Converting...
+        </div>
+      )}
     </div>
   )
 }

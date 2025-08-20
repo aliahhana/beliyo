@@ -58,9 +58,15 @@ class MobileBuildProcessor {
 
   // Helper methods for config validation
   _ensureValidConfig(config) {
-    return typeof config === 'object' && config !== null 
-      ? config 
-      : {}
+    if (typeof config !== 'object' || config === null) {
+      console.warn('[WARN] Invalid config provided, using defaults')
+      return {
+        isPublic: false,
+        deployPath: '/mobile/builds',
+        serverConfig: this.getDefaultServerConfig()
+      }
+    }
+    return config
   }
 
   _resolveBuildConfig(jobData) {

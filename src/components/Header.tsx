@@ -1,6 +1,6 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { Search, User, LogOut } from 'lucide-react'
+import { Search, User, LogOut, ChevronDown } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
 
 interface HeaderProps {
@@ -12,10 +12,13 @@ const Header: React.FC<HeaderProps> = ({ variant = 'home' }) => {
   const navigate = useNavigate()
   const { user, profile, signOut } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
+  const [contactDropdownOpen, setContactDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
   
   const isShop = location.pathname.includes('/shop') || location.pathname.includes('/product')
   const isMoneyExchange = location.pathname.includes('/money-exchange')
   const isMyPage = location.pathname.includes('/my-page')
+  const isMissionBoard = location.pathname.includes('/mission-board')
 
   const handleSignOut = async () => {
     await signOut()
@@ -30,6 +33,27 @@ const Header: React.FC<HeaderProps> = ({ variant = 'home' }) => {
       setSearchQuery('')
     }
   }
+
+  const handleContactClick = (type: string) => {
+    console.log(`Contact type selected: ${type}`)
+    setContactDropdownOpen(false)
+    // You can add navigation or modal opening logic here
+    // For example: navigate(`/contact/${type}`)
+  }
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setContactDropdownOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [])
 
   return (
     <header className="bg-white shadow-sm h-16">
@@ -54,8 +78,38 @@ const Header: React.FC<HeaderProps> = ({ variant = 'home' }) => {
               <div className="bg-gray-100 px-8 flex items-center font-medium flex-1 text-center justify-center">
                 Features Information
               </div>
-              <div className="bg-gray-100 px-8 flex items-center font-medium text-center justify-center">
-                Contact Us
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setContactDropdownOpen(!contactDropdownOpen)}
+                  className="bg-gray-100 px-8 h-16 flex items-center font-medium text-center justify-center gap-2 hover:bg-gray-200 transition-colors"
+                >
+                  Contact Us
+                  <ChevronDown className={`w-4 h-4 transition-transform ${contactDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {/* Dropdown Menu */}
+                {contactDropdownOpen && (
+                  <div className="absolute top-full left-0 mt-1 bg-white rounded-md shadow-lg border border-gray-200 py-2 min-w-[150px] z-50">
+                    <button
+                      onClick={() => handleContactClick('inquiry')}
+                      className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors capitalize"
+                    >
+                      Inquiry
+                    </button>
+                    <button
+                      onClick={() => handleContactClick('feedback')}
+                      className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors capitalize"
+                    >
+                      Feedback
+                    </button>
+                    <button
+                      onClick={() => handleContactClick('report')}
+                      className="w-full px-4 py-2 text-left hover:bg-gray-100 transition-colors capitalize"
+                    >
+                      Report
+                    </button>
+                  </div>
+                )}
               </div>
             </>
           ) : (
@@ -72,9 +126,12 @@ const Header: React.FC<HeaderProps> = ({ variant = 'home' }) => {
               >
                 Money Exchange
               </Link>
-              <div className="bg-gray-100 px-8 flex items-center font-medium flex-1 text-center justify-center">
+              <Link 
+                to="/mission-board" 
+                className={`px-8 flex items-center font-medium flex-1 text-center justify-center ${isMissionBoard ? 'bg-[#B91C1C] text-white' : 'bg-gray-100'}`}
+              >
                 Mission Board
-              </div>
+              </Link>
             </>
           )}
         </div>

@@ -1,41 +1,119 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
-import HomePage from './pages/HomePage'
+import ProtectedRoute from './components/ProtectedRoute'
+
+// Import pages
+import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
-import SignupPage from './pages/SignUpPage'
+import SignUpPage from './pages/SignUpPage'
 import ShopPage from './pages/ShopPage'
-import SellerPage from './pages/SellerPage'
-import EditProductPage from './pages/EditProductPage'
 import ProductDetailPage from './pages/ProductDetailPage'
 import MoneyExchangePage from './pages/MoneyExchangePage'
-import RequestExchangePage from './pages/RequestExchangePage'
-import EditRequestExchangePage from './pages/EditRequestExchangePage'
+import MoneyExchangeChatPage from './pages/MoneyExchangeChatPage'
+import ChatPage from './pages/ChatPage'
+import MissionBoardPage from './pages/MissionBoardPage'
 import MyPage from './pages/MyPage'
+import RequestExchangePage from './pages/RequestExchangePage'
+import EditExchangePage from './pages/EditExchangePage'
 import MyShopPage from './pages/MyShopPage'
 import ExchangeHistoryPage from './pages/ExchangeHistoryPage'
-import './index.css'
+import ChatListPage from './pages/ChatListPage'
 
 function App() {
   return (
     <AuthProvider>
       <Router>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/signup" element={<SignupPage />} />
-          <Route path="/shop" element={<ShopPage />} />
-          <Route path="/seller" element={<SellerPage />} />
-          <Route path="/edit-product/:id" element={<EditProductPage />} />
-          <Route path="/product/:id" element={<ProductDetailPage />} />
-          <Route path="/money-exchange" element={<MoneyExchangePage />} />
-          <Route path="/request-exchange" element={<RequestExchangePage />} />
-          <Route path="/edit-exchange/:id" element={<EditRequestExchangePage />} />
-          <Route path="/my-page" element={<MyPage />} />
-          <Route path="/my-shop" element={<MyShopPage />} />
-          <Route path="/exchange-history" element={<ExchangeHistoryPage />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <div className="App">
+          <Routes>
+            {/* Public routes */}
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/signup" element={<SignUpPage />} />
+            
+            {/* Protected routes */}
+            <Route path="/shop" element={
+              <ProtectedRoute>
+                <ShopPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/product/:id" element={
+              <ProtectedRoute>
+                <ProductDetailPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/money-exchange" element={
+              <ProtectedRoute>
+                <MoneyExchangePage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Money Exchange Chat Routes - Updated for dynamic routing */}
+            <Route path="/chat/exchange/:exchangeId" element={
+              <ProtectedRoute>
+                <MoneyExchangeChatPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Product Chat Routes */}
+            <Route path="/chat/:productId?" element={
+              <ProtectedRoute>
+                <ChatPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/mission-board" element={
+              <ProtectedRoute>
+                <MissionBoardPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/mission" element={
+              <ProtectedRoute>
+                <MissionBoardPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/my-page" element={
+              <ProtectedRoute>
+                <MyPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* My Shop Route */}
+            <Route path="/my-shop" element={
+              <ProtectedRoute>
+                <MyShopPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Exchange History Route */}
+            <Route path="/exchange-history" element={
+              <ProtectedRoute>
+                <ExchangeHistoryPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Chat List Route */}
+            <Route path="/chat-list" element={
+              <ProtectedRoute>
+                <ChatListPage />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/request-exchange" element={
+              <ProtectedRoute>
+                <RequestExchangePage />
+              </ProtectedRoute>
+            } />
+            <Route path="/edit-exchange/:id" element={
+              <ProtectedRoute>
+                <EditExchangePage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Catch all route */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </div>
       </Router>
     </AuthProvider>
   )

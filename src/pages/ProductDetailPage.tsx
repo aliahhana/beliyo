@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import MapComponent from '../components/MapComponent'
-import { Star, ArrowLeft, ChevronLeft, ChevronRight, Search, ChevronDown, X } from 'lucide-react'
+import { Star, ArrowLeft, ChevronLeft, ChevronRight, Search, ChevronDown, X, MessageCircle } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 interface Product {
@@ -295,6 +295,12 @@ const ProductDetailPage: React.FC = () => {
     }
   }
 
+  const handleChatWithSeller = () => {
+    if (product) {
+      navigate(`/chat/${product.id}`)
+    }
+  }
+
   // Mobile category chips for horizontal scrolling
   const mobileCategoryChips = [
     { key: 'clothes', label: 'Clothes' },
@@ -507,7 +513,11 @@ const ProductDetailPage: React.FC = () => {
             </div>
 
             {/* Chat Button */}
-            <button className="bg-[#B91C1C] text-white px-6 py-3 rounded font-medium hover:bg-red-700 transition-colors float-right mb-6">
+            <button 
+              onClick={handleChatWithSeller}
+              className="bg-[#B91C1C] text-white px-6 py-3 rounded font-medium hover:bg-red-700 transition-colors float-right mb-6 flex items-center gap-2"
+            >
+              <MessageCircle className="w-5 h-5" />
               CHAT WITH SELLER
             </button>
             <div className="clear-both"></div>
@@ -537,7 +547,7 @@ const ProductDetailPage: React.FC = () => {
               <span className="text-xl mb-1">💬</span>
               <span className="text-xs font-medium">Chats</span>
             </Link>
-            <Link to="/mission" className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors">
+            <Link to="/mission-board" className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors">
               <span className="text-xl mb-1">🎯</span>
               <span className="text-xs font-medium">Mission</span>
             </Link>
@@ -633,7 +643,11 @@ const ProductDetailPage: React.FC = () => {
                   ))}
                 </div>
 
-                <button className="bg-[#B91C1C] text-white px-8 py-3 rounded-lg font-medium hover:bg-red-700 transition-colors w-full mb-8">
+                <button 
+                  onClick={handleChatWithSeller}
+                  className="bg-[#B91C1C] text-white px-8 py-3 rounded-lg font-medium hover:bg-red-700 transition-colors w-full mb-8 flex items-center justify-center gap-2"
+                >
+                  <MessageCircle className="w-5 h-5" />
                   CHAT WITH SELLER
                 </button>
 

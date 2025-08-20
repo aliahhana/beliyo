@@ -57,13 +57,31 @@ export interface Product {
 
 export interface MoneyExchange {
   id: string
+  unique_id?: string // New unique identifier field
   user_id: string
   from_amount: number
   from_currency: string
   to_amount: number
   to_currency: string
   notes?: string
+  location?: string // New location field
   status: 'pending' | 'completed' | 'cancelled'
+  created_at: string
+  updated_at: string
+}
+
+export interface Mission {
+  id: string
+  user_id: string
+  title: string
+  description: string
+  category: string
+  due_date?: string
+  location: string
+  reward?: string
+  notes?: string
+  status: 'pending' | 'accepted' | 'completed'
+  accepted_by?: string
   created_at: string
   updated_at: string
 }

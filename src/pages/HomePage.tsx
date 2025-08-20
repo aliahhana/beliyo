@@ -153,7 +153,7 @@ const HomePage: React.FC = () => {
           {/* Mission and My Page Row */}
           <div className="grid grid-cols-2 gap-4">
             {/* Mission Card */}
-            <div className="group relative overflow-hidden rounded-lg shadow-lg aspect-square">
+            <Link to="/mission-board" className="group relative overflow-hidden rounded-lg shadow-lg aspect-square">
               <img 
                 src="https://images.unsplash.com/photo-1606787366850-de6330128bfc?w=400&h=400&fit=crop" 
                 alt="Mission"
@@ -166,7 +166,7 @@ const HomePage: React.FC = () => {
                   <ArrowRight className="w-4 h-4" />
                 </div>
               </div>
-            </div>
+            </Link>
 
             {/* My Page Card */}
             <Link to="/my-page" className="group relative overflow-hidden rounded-lg shadow-lg aspect-square">
@@ -201,7 +201,7 @@ const HomePage: React.FC = () => {
               <span className="text-xl mb-1">💬</span>
               <span className="text-xs font-medium">Chats</span>
             </Link>
-            <Link to="/mission" className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors">
+            <Link to="/mission-board" className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors">
               <span className="text-xl mb-1">🎯</span>
               <span className="text-xs font-medium">Mission</span>
             </Link>
@@ -278,7 +278,7 @@ const HomePage: React.FC = () => {
             </Link>
 
             {/* Mission Card */}
-            <div className="group relative overflow-hidden rounded-lg shadow-lg">
+            <Link to="/mission-board" className="group relative overflow-hidden rounded-lg shadow-lg">
               <img 
                 src="https://images.unsplash.com/photo-1606787366850-de6330128bfc?w=400&h=400&fit=crop" 
                 alt="Mission"
@@ -290,7 +290,7 @@ const HomePage: React.FC = () => {
                   <ArrowRight className="w-5 h-5" />
                 </button>
               </div>
-            </div>
+            </Link>
 
             {/* My Page Card */}
             <Link to="/my-page" className="group relative overflow-hidden rounded-lg shadow-lg">

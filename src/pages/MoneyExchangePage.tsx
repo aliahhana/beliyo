@@ -2,22 +2,13 @@ import React, { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import CurrencyConverter from '../components/CurrencyConverter'
-import { ArrowRightLeft, Search, X, Edit2, Trash2, ArrowUpDown } from 'lucide-react'
+import { ArrowRightLeft, Search, X, Edit2, Trash2, ArrowUpDown, Wifi, WifiOff } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { currencyService } from '../services/currencyService'
+import { moneyExchangeService, MoneyExchangeRequest } from '../services/moneyExchangeService'
 import { useAuth } from '../contexts/AuthContext'
 
-interface ExchangeRequest {
-  id: string
-  user_id: string
-  from_amount: number
-  from_currency: string
-  to_amount: number
-  to_currency: string
-  notes?: string
-  location: string
-  status: string
-  created_at: string
+interface ExchangeRequest extends MoneyExchangeRequest {
   timeAgo: string
 }
 
@@ -43,6 +34,7 @@ const MoneyExchangePage: React.FC = () => {
   const [searchInput, setSearchInput] = useState('')
   const [isConverting, setIsConverting] = useState(false)
   const [realTimeRate, setRealTimeRate] = useState('1₩ = RM 0.003040')
+  const [syncStatus, setSyncStatus] = useState(moneyExchangeService.getSyncStatus())
 
   // Check if mobile on mount and resize
   useEffect(() => {
@@ -59,6 +51,16 @@ const MoneyExchangePage: React.FC = () => {
     fetchExchangeRequests()
     loadExchangeRates()
     updateRealTimeRate()
+    setupRealtimeSubscription()
+
+    // Update sync status periodically
+    const syncStatusInterval = setInterval(() => {
+      setSyncStatus(moneyExchangeService.getSyncStatus())
+    }, 5000)
+
+    return () => {
+      clearInterval(syncStatusInterval)
+    }
   }, [])
 
   // Update real-time rate display
@@ -101,6 +103,36 @@ const MoneyExchangePage: React.FC = () => {
     return () => clearTimeout(debounceTimer)
   }, [krwAmount, fromCurrency, toCurrency])
 
+  const setupRealtimeSubscription = () => {
+    const channel = moneyExchangeService.setupRealtimeSubscription((payload) => {
+      console.log('Real-time update received:', payload)
+      
+      if (payload.eventType === 'INSERT') {
+        const newRequest = {
+          ...payload.new,
+          timeAgo: getTimeAgo(payload.new.created_at)
+        }
+        setExchangeRequests(prev => [newRequest, ...prev])
+      } else if (payload.eventType === 'UPDATE') {
+        const updatedRequest = {
+          ...payload.new,
+          timeAgo: getTimeAgo(payload.new.created_at)
+        }
+        setExchangeRequests(prev => 
+          prev.map(req => req.unique_id === updatedRequest.unique_id ? updatedRequest : req)
+        )
+      } else if (payload.eventType === 'DELETE') {
+        setExchangeRequests(prev => 
+          prev.filter(req => req.unique_id !== payload.old.unique_id)
+        )
+      }
+    })
+
+    return () => {
+      channel.unsubscribe()
+    }
+  }
+
   const updateRealTimeRate = async () => {
     try {
       const rate = await currencyService.getRealTimeRate(fromCurrency, toCurrency)
@@ -117,20 +149,35 @@ const MoneyExchangePage: React.FC = () => {
   const fetchExchangeRequests = async () => {
     setLoading(true)
     try {
-      const { data, error } = await supabase
-        .from('money_exchanges')
-        .select('*')
-        .eq('status', 'pending')
-        .order('created_at', { ascending: false })
+      const result = await moneyExchangeService.getExchangeRequests({
+        status: 'pending',
+        limit: 50
+      })
 
-      if (error) throw error
+      if (result.success && result.data) {
+        const requestsWithTimeAgo = result.data.map(request => ({
+          ...request,
+          timeAgo: getTimeAgo(request.created_at || '')
+        }))
+        setExchangeRequests(requestsWithTimeAgo)
+      } else {
+        console.error('Failed to fetch exchange requests:', result.error)
+        // Fallback to direct Supabase query for backward compatibility
+        const { data, error } = await supabase
+          .from('money_exchanges')
+          .select('*')
+          .eq('status', 'pending')
+          .order('created_at', { ascending: false })
 
-      const requestsWithTimeAgo = data?.map(request => ({
-        ...request,
-        timeAgo: getTimeAgo(request.created_at)
-      })) || []
+        if (error) throw error
 
-      setExchangeRequests(requestsWithTimeAgo)
+        const requestsWithTimeAgo = data?.map(request => ({
+          ...request,
+          timeAgo: getTimeAgo(request.created_at)
+        })) || []
+
+        setExchangeRequests(requestsWithTimeAgo)
+      }
     } catch (error) {
       console.error('Error fetching exchange requests:', error)
     } finally {
@@ -211,24 +258,45 @@ const MoneyExchangePage: React.FC = () => {
   }
 
   const handleEditRequest = (request: ExchangeRequest) => {
-    navigate(`/edit-exchange/${request.id}`)
+    if (request.unique_id) {
+      navigate(`/edit-exchange/${request.unique_id}`)
+    } else {
+      // Fallback to regular ID for backward compatibility
+      navigate(`/edit-exchange/${request.id}`)
+    }
   }
 
-  const handleDeleteRequest = async (requestId: string) => {
+  const handleDeleteRequest = async (request: ExchangeRequest) => {
     if (!confirm('Are you sure you want to delete this exchange request?')) {
       return
     }
 
     try {
-      const { error } = await supabase
-        .from('money_exchanges')
-        .delete()
-        .eq('id', requestId)
+      let result
+      if (request.unique_id) {
+        // Use new service method with unique ID
+        result = await moneyExchangeService.deleteExchangeRequest(request.unique_id)
+      } else {
+        // Fallback to direct Supabase query for backward compatibility
+        const { error } = await supabase
+          .from('money_exchanges')
+          .delete()
+          .eq('id', request.id)
+        
+        result = { success: !error, error: error?.message || null }
+      }
 
-      if (error) throw error
-
-      fetchExchangeRequests()
-      alert('Exchange request deleted successfully!')
+      if (result.success) {
+        // Remove from local state immediately for better UX
+        setExchangeRequests(prev => 
+          prev.filter(req => 
+            request.unique_id ? req.unique_id !== request.unique_id : req.id !== request.id
+          )
+        )
+        alert('Exchange request deleted successfully!')
+      } else {
+        throw new Error(result.error || 'Failed to delete exchange request')
+      }
     } catch (error) {
       console.error('Error deleting exchange request:', error)
       alert('Failed to delete exchange request. Please try again.')
@@ -268,6 +336,23 @@ const MoneyExchangePage: React.FC = () => {
     setMyrAmount(tempAmount)
   }
 
+  /**
+   * Navigate to exchange-specific chat page
+   * Uses unique_id if available, falls back to regular id for backward compatibility
+   */
+  const handleChatWithUser = (request: ExchangeRequest) => {
+    const exchangeId = request.unique_id || request.id
+    
+    if (!exchangeId) {
+      console.error('No valid exchange ID found for request:', request)
+      alert('Unable to start chat - invalid exchange request')
+      return
+    }
+
+    // Navigate to the exchange-specific chat page
+    navigate(`/chat/exchange/${exchangeId}`)
+  }
+
   if (isMobile) {
     return (
       <div className="min-h-screen bg-gray-50 pb-16">
@@ -282,12 +367,21 @@ const MoneyExchangePage: React.FC = () => {
               BeliYo!
             </button>
             <div className="text-xl font-medium">Money Exchange</div>
-            <button 
-              onClick={() => setShowSearchModal(true)}
-              className="hover:text-red-200 transition-colors"
-            >
-              <Search className="w-6 h-6" />
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Sync Status Indicator */}
+              {syncStatus.pendingSync && (
+                <div className="flex items-center gap-1 text-yellow-300">
+                  <WifiOff className="w-4 h-4" />
+                  <span className="text-xs">{syncStatus.queueLength}</span>
+                </div>
+              )}
+              <button 
+                onClick={() => setShowSearchModal(true)}
+                className="hover:text-red-200 transition-colors"
+              >
+                <Search className="w-6 h-6" />
+              </button>
+            </div>
           </div>
           
           {/* Currency Exchange Section - Fully Functional */}
@@ -453,12 +547,19 @@ const MoneyExchangePage: React.FC = () => {
               {exchangeRequests.map((request) => {
                 const exchangeDisplay = formatMobileExchangeDisplay(request)
                 return (
-                  <div key={request.id} className="bg-white border-b border-gray-200 px-4 py-4">
+                  <div key={request.unique_id || request.id} className="bg-white border-b border-gray-200 px-4 py-4">
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-start gap-3 flex-1">
                         <div className="text-3xl flex-shrink-0">{getUserAvatar(request.user_id)}</div>
                         <div className="flex-1">
-                          <h3 className="font-medium text-gray-900 text-sm mb-2">{getExchangeDescription(request)}</h3>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-medium text-gray-900 text-sm">{getExchangeDescription(request)}</h3>
+                            {request.unique_id && (
+                              <span className="text-xs text-gray-400 font-mono">
+                                {request.unique_id.split('-').pop()}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 mb-2">
                             <span className="text-lg font-bold text-gray-900">
                               {exchangeDisplay.fromAmount}
@@ -488,7 +589,7 @@ const MoneyExchangePage: React.FC = () => {
                             <Edit2 className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleDeleteRequest(request.id)}
+                            onClick={() => handleDeleteRequest(request)}
                             className="p-1.5 text-gray-600 hover:text-red-600 transition-colors"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -497,9 +598,12 @@ const MoneyExchangePage: React.FC = () => {
                       )}
                     </div>
                     
-                    {/* Chat with User Button - Centered in separate row */}
+                    {/* Chat with User Button - Updated with dynamic routing */}
                     <div className="flex justify-center">
-                      <button className="bg-[#B91C1C] text-white px-8 py-2 rounded-full text-sm font-medium hover:bg-red-700 transition-colors">
+                      <button 
+                        onClick={() => handleChatWithUser(request)}
+                        className="bg-[#B91C1C] text-white px-8 py-2 rounded-full text-sm font-medium hover:bg-red-700 transition-colors"
+                      >
                         Chat with user
                       </button>
                     </div>
@@ -565,6 +669,16 @@ const MoneyExchangePage: React.FC = () => {
             <h2 className="text-white text-xl font-bold mb-2">CURRENCY</h2>
             <h2 className="text-white text-xl font-bold mb-6">EXCHANGE</h2>
             
+            {/* Sync Status Indicator */}
+            {syncStatus.pendingSync && (
+              <div className="mb-4 p-3 bg-yellow-500/20 rounded-lg">
+                <div className="flex items-center gap-2 text-yellow-200 text-sm">
+                  <WifiOff className="w-4 h-4" />
+                  <span>{syncStatus.queueLength} pending sync</span>
+                </div>
+              </div>
+            )}
+            
             {/* Currency Converter */}
             <CurrencyConverter
               fromAmount={krwAmount}
@@ -612,12 +726,19 @@ const MoneyExchangePage: React.FC = () => {
             ) : (
               <div className="space-y-4">
                 {exchangeRequests.map((request) => (
-                  <div key={request.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+                  <div key={request.unique_id || request.id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4 flex-1">
                         <div className="text-3xl">{getUserAvatar(request.user_id)}</div>
                         <div className="flex-1">
-                          <h3 className="font-medium text-gray-900">{getExchangeDescription(request)}</h3>
+                          <div className="flex items-center gap-2 mb-1">
+                            <h3 className="font-medium text-gray-900">{getExchangeDescription(request)}</h3>
+                            {request.unique_id && (
+                              <span className="text-xs text-gray-400 font-mono bg-gray-100 px-2 py-1 rounded">
+                                {request.unique_id}
+                              </span>
+                            )}
+                          </div>
                           <div className="flex items-center gap-2 mt-1">
                             <p className="text-lg font-bold">
                               {currencyService.getCurrencySymbol(request.from_currency)}{request.from_amount.toLocaleString()}
@@ -649,7 +770,7 @@ const MoneyExchangePage: React.FC = () => {
                               <Edit2 className="w-5 h-5" />
                             </button>
                             <button
-                              onClick={() => handleDeleteRequest(request.id)}
+                              onClick={() => handleDeleteRequest(request)}
                               className="p-2 text-gray-600 hover:text-red-600 transition-colors"
                               title="Delete request"
                             >
@@ -657,7 +778,10 @@ const MoneyExchangePage: React.FC = () => {
                             </button>
                           </>
                         )}
-                        <button className="bg-[#B91C1C] text-white px-6 py-2 rounded-full font-medium hover:bg-red-700 transition-colors">
+                        <button 
+                          onClick={() => handleChatWithUser(request)}
+                          className="bg-[#B91C1C] text-white px-6 py-2 rounded-full font-medium hover:bg-red-700 transition-colors"
+                        >
                           Chat with user
                         </button>
                       </div>

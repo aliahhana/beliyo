@@ -380,10 +380,10 @@ const MyShopPage: React.FC = () => {
   const sidebarItems = [
     { icon: Store, label: 'My Shop', path: '/my-shop', active: true },
     { icon: ShoppingCart, label: 'Purchase History', path: '/my-page' },
-    { icon: RefreshCw, label: 'Exchange History', path: '/my-page' },
+    { icon: RefreshCw, label: 'Exchange History', path: '/exchange-history' },
     { icon: Target, label: 'Mission', path: '/my-page' },
     { icon: Award, label: 'Badges', path: '/my-page' },
-    { icon: MessageCircle, label: 'Chat List', path: '/my-page' },
+    { icon: MessageCircle, label: 'Chat List', path: '/chat-list' },
     { icon: Users, label: 'Chingu List', path: '/my-page' }
   ]
 

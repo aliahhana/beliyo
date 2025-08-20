@@ -139,29 +139,62 @@ const MissionBoardPage: React.FC = () => {
     if (!confirmDelete) return
 
     try {
+      console.log(`Attempting to delete mission ${missionId} for user ${user.id}`)
+      
+      // First, verify the mission exists and belongs to the user
+      const { data: missionCheck, error: checkError } = await supabase
+        .from('missions')
+        .select('id, user_id')
+        .eq('id', missionId)
+        .eq('user_id', user.id)
+        .single()
+
+      if (checkError || !missionCheck) {
+        console.error('Mission not found or not owned by user:', checkError)
+        alert('Mission not found or you do not have permission to delete it.')
+        return
+      }
+
       // Optimistically remove from UI first
       setMissions(prevMissions => prevMissions.filter(mission => mission.id !== missionId))
 
-      const { error } = await supabase
+      // Delete from database with explicit conditions
+      const { data: deletedData, error: deleteError } = await supabase
         .from('missions')
         .delete()
         .eq('id', missionId)
         .eq('user_id', user.id)
+        .select()
 
-      if (error) {
-        console.error('Error deleting mission:', error)
+      if (deleteError) {
+        console.error('Error deleting mission from database:', deleteError)
         alert('Failed to delete mission. Please try again.')
         // Revert the optimistic update by refetching
-        fetchMissions()
+        await fetchMissions()
         return
       }
 
-      console.log(`Deleted mission ${missionId}`)
+      if (!deletedData || deletedData.length === 0) {
+        console.error('No mission was deleted - mission may not exist or user lacks permission')
+        alert('Failed to delete mission. You may not have permission to delete this mission.')
+        // Revert the optimistic update by refetching
+        await fetchMissions()
+        return
+      }
+
+      console.log(`Successfully deleted mission ${missionId}:`, deletedData)
+      
+      // Force a small delay to ensure database transaction is complete
+      setTimeout(() => {
+        // Double-check by refetching to ensure consistency
+        fetchMissions()
+      }, 500)
+
     } catch (error) {
-      console.error('Error deleting mission:', error)
+      console.error('Unexpected error deleting mission:', error)
       alert('Failed to delete mission. Please try again.')
       // Revert the optimistic update by refetching
-      fetchMissions()
+      await fetchMissions()
     }
   }
 
@@ -216,7 +249,12 @@ const MissionBoardPage: React.FC = () => {
                 <MissionCard
                   key={mission.id}
                   avatar="https://i.imgur.com/8RKXAIV.png"
+                  title={mission.title}
                   description={mission.description}
+                  category={mission.category}
+                  location={mission.location}
+                  reward={mission.reward}
+                  notes={mission.notes}
                   dueDate={formatDueDate(mission.due_date)}
                   isAccepted={mission.status === 'accepted' && mission.accepted_by === user?.id}
                   isOwner={mission.user_id === user?.id}

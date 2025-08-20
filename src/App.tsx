@@ -14,6 +14,7 @@ import MoneyExchangeChatPage from './pages/MoneyExchangeChatPage'
 import ChatPage from './pages/ChatPage'
 import MissionBoardPage from './pages/MissionBoardPage'
 import AddMissionPage from './pages/AddMissionPage'
+import EditMissionPage from './pages/EditMissionPage'
 import MyPage from './pages/MyPage'
 import RequestExchangePage from './pages/RequestExchangePage'
 import EditExchangePage from './pages/EditExchangePage'
@@ -86,6 +87,13 @@ function App() {
             <Route path="/add-mission" element={
               <ProtectedRoute>
                 <AddMissionPage />
+              </ProtectedRoute>
+            } />
+            
+            {/* Edit Mission Route - ADDED */}
+            <Route path="/edit-mission/:missionId" element={
+              <ProtectedRoute>
+                <EditMissionPage />
               </ProtectedRoute>
             } />
             

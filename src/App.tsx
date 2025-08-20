@@ -13,12 +13,14 @@ import MoneyExchangePage from './pages/MoneyExchangePage'
 import MoneyExchangeChatPage from './pages/MoneyExchangeChatPage'
 import ChatPage from './pages/ChatPage'
 import MissionBoardPage from './pages/MissionBoardPage'
+import AddMissionPage from './pages/AddMissionPage'
 import MyPage from './pages/MyPage'
 import RequestExchangePage from './pages/RequestExchangePage'
 import EditExchangePage from './pages/EditExchangePage'
 import MyShopPage from './pages/MyShopPage'
 import ExchangeHistoryPage from './pages/ExchangeHistoryPage'
 import ChatListPage from './pages/ChatListPage'
+import SellerPage from './pages/SellerPage'
 
 function App() {
   return (
@@ -48,6 +50,13 @@ function App() {
               </ProtectedRoute>
             } />
             
+            {/* Seller Route - ADDED */}
+            <Route path="/seller" element={
+              <ProtectedRoute>
+                <SellerPage />
+              </ProtectedRoute>
+            } />
+            
             {/* Money Exchange Chat Routes - Updated for dynamic routing */}
             <Route path="/chat/exchange/:exchangeId" element={
               <ProtectedRoute>
@@ -72,6 +81,14 @@ function App() {
                 <MissionBoardPage />
               </ProtectedRoute>
             } />
+            
+            {/* Add Mission Route - ADDED */}
+            <Route path="/add-mission" element={
+              <ProtectedRoute>
+                <AddMissionPage />
+              </ProtectedRoute>
+            } />
+            
             <Route path="/my-page" element={
               <ProtectedRoute>
                 <MyPage />

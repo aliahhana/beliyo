@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import MapComponent from '../components/MapComponent'
-import { Star, ArrowLeft, ChevronLeft, ChevronRight, Search, ChevronDown, X, MessageCircle } from 'lucide-react'
+import ChatWithSellerButton from '../components/ChatWithSellerButton'
+import { Star, ArrowLeft, ChevronLeft, ChevronRight, Search, ChevronDown, X } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 interface Product {
@@ -295,12 +296,6 @@ const ProductDetailPage: React.FC = () => {
     }
   }
 
-  const handleChatWithSeller = () => {
-    if (product) {
-      navigate(`/chat/${product.id}`)
-    }
-  }
-
   // Mobile category chips for horizontal scrolling
   const mobileCategoryChips = [
     { key: 'clothes', label: 'Clothes' },
@@ -512,15 +507,20 @@ const ProductDetailPage: React.FC = () => {
               ))}
             </div>
 
-            {/* Chat Button */}
-            <button 
-              onClick={handleChatWithSeller}
-              className="bg-[#B91C1C] text-white px-6 py-3 rounded font-medium hover:bg-red-700 transition-colors float-right mb-6 flex items-center gap-2"
-            >
-              <MessageCircle className="w-5 h-5" />
-              CHAT WITH SELLER
-            </button>
-            <div className="clear-both"></div>
+            {/* NEW: Dynamic Chat With Seller Button */}
+            <div className="mb-6 flex justify-end">
+              <ChatWithSellerButton 
+                product={{
+                  id: product.id,
+                  seller_id: product.seller_id || product.user_id,
+                  user_id: product.user_id,
+                  name: product.name,
+                  category: product.category
+                }}
+                size="md"
+                className="w-auto"
+              />
+            </div>
 
             {/* Pickup Point Section with Real Map - Added for Mobile */}
             <div className="border-t pt-6">
@@ -643,13 +643,20 @@ const ProductDetailPage: React.FC = () => {
                   ))}
                 </div>
 
-                <button 
-                  onClick={handleChatWithSeller}
-                  className="bg-[#B91C1C] text-white px-8 py-3 rounded-lg font-medium hover:bg-red-700 transition-colors w-full mb-8 flex items-center justify-center gap-2"
-                >
-                  <MessageCircle className="w-5 h-5" />
-                  CHAT WITH SELLER
-                </button>
+                {/* NEW: Dynamic Chat With Seller Button */}
+                <div className="mb-8">
+                  <ChatWithSellerButton 
+                    product={{
+                      id: product.id,
+                      seller_id: product.seller_id || product.user_id,
+                      user_id: product.user_id,
+                      name: product.name,
+                      category: product.category
+                    }}
+                    size="lg"
+                    className="w-full"
+                  />
+                </div>
 
                 {/* Pickup Point Section with Real Map */}
                 <MapComponent 

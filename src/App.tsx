@@ -1,27 +1,30 @@
 import React from 'react'
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
-import ProtectedRoute from './components/ProtectedRoute'
 
-// Import pages
-import LandingPage from './pages/LandingPage'
+// Pages
+import HomePage from './pages/HomePage'
 import LoginPage from './pages/LoginPage'
-import SignUpPage from './pages/SignUpPage'
+import SignupPage from './pages/SignupPage'
 import ShopPage from './pages/ShopPage'
 import ProductDetailPage from './pages/ProductDetailPage'
 import MoneyExchangePage from './pages/MoneyExchangePage'
-import MoneyExchangeChatPage from './pages/MoneyExchangeChatPage'
-import ChatPage from './pages/ChatPage'
 import MissionBoardPage from './pages/MissionBoardPage'
-import AddMissionPage from './pages/AddMissionPage'
-import EditMissionPage from './pages/EditMissionPage'
 import MyPage from './pages/MyPage'
-import RequestExchangePage from './pages/RequestExchangePage'
-import EditExchangePage from './pages/EditExchangePage'
 import MyShopPage from './pages/MyShopPage'
 import ExchangeHistoryPage from './pages/ExchangeHistoryPage'
+
+// Updated Chat Pages - Now using Unified 1:1 Chat System
 import ChatListPage from './pages/ChatListPage'
-import SellerPage from './pages/SellerPage'
+import UnifiedChatPage from './pages/UnifiedChatPage'
+import ItemChatPage from './pages/ItemChatPage'
+
+// Legacy chat pages - now redirect to unified system
+import ChatPage from './pages/ChatPage'
+import MoneyExchangeChatPage from './pages/MoneyExchangeChatPage'
+
+// Custom Toast Component to replace react-hot-toast
+import Toast from './components/Toast'
 
 function App() {
   return (
@@ -29,115 +32,54 @@ function App() {
       <Router>
         <div className="App">
           <Routes>
-            {/* Public routes */}
-            <Route path="/" element={<LandingPage />} />
+            {/* Main Pages */}
+            <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
-            <Route path="/signup" element={<SignUpPage />} />
+            <Route path="/signup" element={<SignupPage />} />
+            <Route path="/shop" element={<ShopPage />} />
             
-            {/* Protected routes */}
-            <Route path="/shop" element={
-              <ProtectedRoute>
-                <ShopPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/product/:id" element={
-              <ProtectedRoute>
-                <ProductDetailPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/money-exchange" element={
-              <ProtectedRoute>
-                <MoneyExchangePage />
-              </ProtectedRoute>
-            } />
+            {/* Product Detail Routes */}
+            <Route path="/product/:id" element={<ProductDetailPage />} />
+            <Route path="/shop/product/:id" element={<ProductDetailPage />} />
             
-            {/* Seller Route - ADDED */}
-            <Route path="/seller" element={
-              <ProtectedRoute>
-                <SellerPage />
-              </ProtectedRoute>
-            } />
+            <Route path="/money-exchange" element={<MoneyExchangePage />} />
+            <Route path="/missions" element={<MissionBoardPage />} />
+            <Route path="/my-page" element={<MyPage />} />
+            <Route path="/my-shop" element={<MyShopPage />} />
+            <Route path="/exchange-history" element={<ExchangeHistoryPage />} />
+
+            {/* Chat System Routes */}
+            <Route path="/chat-list" element={<ChatListPage />} />
             
-            {/* Money Exchange Chat Routes - Updated for dynamic routing */}
-            <Route path="/chat/exchange/:exchangeId" element={
-              <ProtectedRoute>
-                <MoneyExchangeChatPage />
-              </ProtectedRoute>
-            } />
+            {/* NEW: Item-Specific Chat Route */}
+            <Route path="/chat/item/:encodedItemCode/:sellerId" element={<ItemChatPage />} />
             
-            {/* Product Chat Routes */}
-            <Route path="/chat/:productId?" element={
-              <ProtectedRoute>
-                <ChatPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/mission-board" element={
-              <ProtectedRoute>
-                <MissionBoardPage />
-              </ProtectedRoute>
-            } />
-            <Route path="/mission" element={
-              <ProtectedRoute>
-                <MissionBoardPage />
-              </ProtectedRoute>
-            } />
-            
-            {/* Add Mission Route - ADDED */}
-            <Route path="/add-mission" element={
-              <ProtectedRoute>
-                <AddMissionPage />
-              </ProtectedRoute>
-            } />
-            
-            {/* Edit Mission Route - ADDED */}
-            <Route path="/edit-mission/:missionId" element={
-              <ProtectedRoute>
-                <EditMissionPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/my-page" element={
-              <ProtectedRoute>
-                <MyPage />
-              </ProtectedRoute>
-            } />
-            
-            {/* My Shop Route */}
-            <Route path="/my-shop" element={
-              <ProtectedRoute>
-                <MyShopPage />
-              </ProtectedRoute>
-            } />
-            
-            {/* Exchange History Route */}
-            <Route path="/exchange-history" element={
-              <ProtectedRoute>
-                <ExchangeHistoryPage />
-              </ProtectedRoute>
-            } />
-            
-            {/* Chat List Route */}
-            <Route path="/chat-list" element={
-              <ProtectedRoute>
-                <ChatListPage />
-              </ProtectedRoute>
-            } />
-            
-            <Route path="/request-exchange" element={
-              <ProtectedRoute>
-                <RequestExchangePage />
-              </ProtectedRoute>
-            } />
-            <Route path="/edit-exchange/:id" element={
-              <ProtectedRoute>
-                <EditExchangePage />
-              </ProtectedRoute>
-            } />
-            
-            {/* Catch all route */}
+            {/* Unified Chat Routes */}
+            <Route path="/chat/shop/:id/:otherUserId" element={<UnifiedChatPage />} />
+            <Route path="/chat/exchange/:id/:otherUserId" element={<UnifiedChatPage />} />
+            <Route path="/chat/mission/:id/:otherUserId" element={<UnifiedChatPage />} />
+            <Route path="/chat/general/:otherUserId" element={<UnifiedChatPage />} />
+
+            {/* NEW: Seller Reply Route - allows seller to access buyer conversations */}
+            <Route path="/seller-chat/shop/:id/:buyerId" element={<UnifiedChatPage />} />
+            <Route path="/seller-chat/exchange/:id/:buyerId" element={<UnifiedChatPage />} />
+            <Route path="/seller-chat/mission/:id/:buyerId" element={<UnifiedChatPage />} />
+            <Route path="/seller-chat/general/:buyerId" element={<UnifiedChatPage />} />
+
+            {/* Legacy Chat Routes - Handle legacy routes properly */}
+            <Route path="/chat/:productId" element={<ChatPage />} />
+            <Route path="/chat/product/:productId/:otherUserId" element={<UnifiedChatPage />} />
+            <Route path="/chat/exchange/:exchangeId/:otherUserId?" element={<MoneyExchangeChatPage />} />
+
+            {/* Redirect old chat routes to new system */}
+            <Route path="/chat" element={<Navigate to="/chat-list" replace />} />
+
+            {/* Catch all - redirect to home */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+
+          {/* Custom Toast Container */}
+          <Toast />
         </div>
       </Router>
     </AuthProvider>

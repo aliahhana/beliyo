@@ -2,8 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
-import { exchangeChatService } from '../services/exchangeChatService'
-import { moneyExchangeService } from '../services/moneyExchangeService'
 import Header from '../components/Header'
 import { 
   MessageCircle, 
@@ -26,7 +24,8 @@ import {
 
 interface ChatItem {
   id: string
-  type: 'product' | 'exchange' | 'general'
+  conversation_id: string
+  type: 'shop' | 'exchange' | 'mission' | 'general'
   title: string
   subtitle: string
   lastMessage: string
@@ -34,25 +33,21 @@ interface ChatItem {
   unreadCount: number
   isOnline: boolean
   avatar: string
-  productImage?: string
-  exchangeDetails?: {
-    fromAmount: number
-    fromCurrency: string
-    toAmount: number
-    toCurrency: string
-    exchangeId: string
-    status: string
-  }
+  otherUserId: string
+  contextId?: string
   chatPath: string
 }
 
+/**
+ * Chat List Page - Using conversations table structure
+ */
 const ChatListPage: React.FC = () => {
   const { user } = useAuth()
   const navigate = useNavigate()
   const [chats, setChats] = useState<ChatItem[]>([])
   const [loading, setLoading] = useState(true)
   const [searchQuery, setSearchQuery] = useState('')
-  const [filterType, setFilterType] = useState<'all' | 'product' | 'exchange' | 'general'>('all')
+  const [filterType, setFilterType] = useState<'all' | 'shop' | 'exchange' | 'mission' | 'general'>('all')
   const [showFilterModal, setShowFilterModal] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
@@ -80,334 +75,150 @@ const ChatListPage: React.FC = () => {
 
     try {
       setLoading(true)
+      console.log('Fetching chats for user:', user.id)
+      
       const allChats: ChatItem[] = []
 
-      // Fetch product chats
-      await fetchProductChats(allChats)
-      
-      // Fetch exchange chats (both from exchangeChatService and MoneyExchangeChatPage history)
-      await fetchExchangeChats(allChats)
-      await fetchMoneyExchangeChats(allChats)
-      
-      // Fetch general chats
-      await fetchGeneralChats(allChats)
+      // Fetch conversations where user is a participant
+      const { data: conversations, error: convError } = await supabase
+        .from('conversations')
+        .select('*')
+        .or(`participant1_id.eq.${user.id},participant2_id.eq.${user.id}`)
+        .order('last_message_at', { ascending: false, nullsFirst: false })
 
-      // Sort by last message time
-      allChats.sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime())
+      console.log('Conversations query result:', { conversations, convError })
+
+      if (conversations && conversations.length > 0) {
+        for (const conv of conversations) {
+          // Determine the other user
+          const otherUserId = conv.participant1_id === user.id ? conv.participant2_id : conv.participant1_id
+          
+          // Get the last message for this conversation
+          const { data: lastMsg } = await supabase
+            .from('messages')
+            .select('*')
+            .eq('conversation_id', conv.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single()
+
+          // Get unread count
+          const { count: unreadCount } = await supabase
+            .from('messages')
+            .select('*', { count: 'exact', head: true })
+            .eq('conversation_id', conv.id)
+            .neq('sender_id', user.id)
+            .eq('is_read', false)
+
+          // Create appropriate title based on context
+          let title = 'Chat'
+          let subtitle = ''
+          let avatar = '💬'
+          let chatPath = ''
+
+          if (conv.context_type === 'shop' && conv.context_id) {
+            // Get product info
+            const { data: product } = await supabase
+              .from('products')
+              .select('name')
+              .eq('id', conv.context_id)
+              .single()
+            
+            title = product?.name || 'Product Chat'
+            subtitle = 'Product Discussion'
+            avatar = '🛍️'
+            chatPath = `/chat/shop/${conv.context_id}/${otherUserId}`
+          } else if (conv.context_type === 'exchange' && conv.context_id) {
+            // Get exchange info
+            const { data: exchange } = await supabase
+              .from('money_exchanges')
+              .select('from_currency, to_currency')
+              .eq('id', conv.context_id)
+              .single()
+            
+            title = exchange ? `${exchange.from_currency} → ${exchange.to_currency}` : 'Exchange Chat'
+            subtitle = 'Currency Exchange'
+            avatar = '💱'
+            chatPath = `/chat/exchange/${conv.context_id}/${otherUserId}`
+          } else if (conv.context_type === 'mission' && conv.context_id) {
+            // Get mission info
+            const { data: mission } = await supabase
+              .from('missions')
+              .select('title')
+              .eq('id', conv.context_id)
+              .single()
+            
+            title = mission?.title || 'Mission Chat'
+            subtitle = 'Mission Discussion'
+            avatar = '🎯'
+            chatPath = `/chat/mission/${conv.context_id}/${otherUserId}`
+          } else {
+            title = 'Direct Message'
+            subtitle = 'Private Chat'
+            avatar = '💬'
+            chatPath = `/chat/direct/${otherUserId}`
+          }
+
+          allChats.push({
+            id: conv.id,
+            conversation_id: conv.id,
+            type: conv.context_type as 'shop' | 'exchange' | 'mission' | 'general',
+            title,
+            subtitle,
+            lastMessage: lastMsg?.content || conv.last_message || 'No messages yet',
+            lastMessageTime: lastMsg?.created_at || conv.last_message_at || conv.created_at,
+            unreadCount: unreadCount || 0,
+            isOnline: false,
+            avatar,
+            otherUserId,
+            contextId: conv.context_id,
+            chatPath
+          })
+        }
+      }
+
+      // Also check for any orphaned product messages (backwards compatibility)
+      const { data: userProducts } = await supabase
+        .from('products')
+        .select('id, name, seller_id')
+        .eq('seller_id', user.id)
+
+      if (userProducts && userProducts.length > 0) {
+        for (const product of userProducts) {
+          // Check if we already have a conversation for this
+          const existingChat = allChats.find(chat => 
+            chat.type === 'shop' && chat.contextId === product.id
+          )
+          
+          if (!existingChat) {
+            // Create a placeholder chat entry for products with potential buyers
+            allChats.push({
+              id: `product_${product.id}`,
+              conversation_id: `product_${product.id}`,
+              type: 'shop',
+              title: product.name,
+              subtitle: 'Your Product',
+              lastMessage: 'No messages yet',
+              lastMessageTime: new Date().toISOString(),
+              unreadCount: 0,
+              isOnline: false,
+              avatar: '🛍️',
+              otherUserId: '',
+              contextId: product.id,
+              chatPath: `/chat/shop/${product.id}/seller`
+            })
+          }
+        }
+      }
+
+      console.log('Total chats found:', allChats.length)
+      console.log('All chats:', allChats)
       
       setChats(allChats)
     } catch (error) {
       console.error('Error fetching chats:', error)
     } finally {
       setLoading(false)
-    }
-  }
-
-  const fetchProductChats = async (allChats: ChatItem[]) => {
-    try {
-      // Get channels that start with 'product_'
-      const { data: channels, error: channelsError } = await supabase
-        .from('channels')
-        .select('*')
-        .like('name', 'product_%')
-
-      if (channelsError) {
-        console.error('Error fetching product channels:', channelsError)
-        return
-      }
-
-      if (!channels || channels.length === 0) return
-
-      // Get messages for these channels
-      for (const channel of channels) {
-        const { data: messages, error: messagesError } = await supabase
-          .from('messages')
-          .select('*')
-          .eq('channel_id', channel.id)
-          .order('created_at', { ascending: false })
-          .limit(1)
-
-        if (messagesError) continue
-
-        const lastMessage = messages?.[0]
-        if (!lastMessage) continue
-
-        // Get product details
-        const productId = channel.name.replace('product_', '')
-        const { data: product } = await supabase
-          .from('products')
-          .select('*')
-          .eq('id', productId)
-          .single()
-
-        if (product) {
-          // Get unread count
-          const { count: unreadCount } = await supabase
-            .from('messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('channel_id', channel.id)
-            .neq('user_id', user.id)
-            .is('read_at', null)
-
-          allChats.push({
-            id: `product_${productId}`,
-            type: 'product',
-            title: product.title || product.name || 'Product Chat',
-            subtitle: `${product.price ? `${product.currency}${product.price.toLocaleString()}` : 'FREE'} • ${product.category}`,
-            lastMessage: lastMessage.content,
-            lastMessageTime: lastMessage.created_at,
-            unreadCount: unreadCount || 0,
-            isOnline: false,
-            avatar: '🛍️',
-            productImage: product.images?.[0] || product.image_url,
-            chatPath: `/chat/${productId}`
-          })
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching product chats:', error)
-    }
-  }
-
-  const fetchExchangeChats = async (allChats: ChatItem[]) => {
-    try {
-      const exchangeChats = await exchangeChatService.getUserExchangeChats(user!.id)
-      
-      for (const exchangeChat of exchangeChats) {
-        if (exchangeChat.last_message) {
-          allChats.push({
-            id: `exchange_${exchangeChat.exchange_id}`,
-            type: 'exchange',
-            title: 'Money Exchange',
-            subtitle: `${exchangeChat.exchange_details.from_currency}${exchangeChat.exchange_details.from_amount.toLocaleString()} → ${exchangeChat.exchange_details.to_currency}${exchangeChat.exchange_details.to_amount.toLocaleString()}`,
-            lastMessage: exchangeChat.last_message.content,
-            lastMessageTime: exchangeChat.last_message.created_at,
-            unreadCount: exchangeChat.unread_count,
-            isOnline: exchangeChat.other_user_presence?.is_online || false,
-            avatar: '💱',
-            exchangeDetails: {
-              fromAmount: exchangeChat.exchange_details.from_amount,
-              fromCurrency: exchangeChat.exchange_details.from_currency,
-              toAmount: exchangeChat.exchange_details.to_amount,
-              toCurrency: exchangeChat.exchange_details.to_currency,
-              exchangeId: exchangeChat.exchange_id,
-              status: 'active'
-            },
-            chatPath: `/chat/exchange/${exchangeChat.exchange_id}`
-          })
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching exchange chats:', error)
-    }
-  }
-
-  const fetchMoneyExchangeChats = async (allChats: ChatItem[]) => {
-    try {
-      // Get money exchange requests for the current user
-      const exchangeResult = await moneyExchangeService.getExchangeRequests({
-        user_id: user!.id,
-        limit: 50
-      })
-
-      if (!exchangeResult.success || !exchangeResult.data) return
-
-      // Get exchange messages from exchange_messages table
-      const { data: exchangeMessages, error: messagesError } = await supabase
-        .from('exchange_messages')
-        .select(`
-          *,
-          sender:profiles!exchange_messages_sender_id_fkey(user_id, full_name),
-          receiver:profiles!exchange_messages_receiver_id_fkey(user_id, full_name)
-        `)
-        .or(`sender_id.eq.${user.id},receiver_id.eq.${user.id}`)
-        .order('created_at', { ascending: false })
-
-      if (messagesError) {
-        console.error('Error fetching exchange messages:', messagesError)
-        return
-      }
-
-      // Group messages by exchange_id and get the latest message for each
-      const exchangeMessageMap = new Map<string, any>()
-      
-      if (exchangeMessages) {
-        for (const message of exchangeMessages) {
-          if (!exchangeMessageMap.has(message.exchange_id) || 
-              new Date(message.created_at) > new Date(exchangeMessageMap.get(message.exchange_id).created_at)) {
-            exchangeMessageMap.set(message.exchange_id, message)
-          }
-        }
-      }
-
-      // Create chat items for exchanges with messages
-      for (const exchange of exchangeResult.data) {
-        const lastMessage = exchangeMessageMap.get(exchange.unique_id || exchange.id)
-        
-        if (lastMessage) {
-          // Count unread messages for this exchange
-          const { count: unreadCount } = await supabase
-            .from('exchange_messages')
-            .select('*', { count: 'exact', head: true })
-            .eq('exchange_id', exchange.unique_id || exchange.id)
-            .neq('sender_id', user.id)
-            .is('read_at', null)
-
-          // Determine if other user is online (simplified for now)
-          const otherUserId = lastMessage.sender_id === user.id ? lastMessage.receiver_id : lastMessage.sender_id
-          const { data: presenceData } = await supabase
-            .from('user_presence')
-            .select('is_online')
-            .eq('user_id', otherUserId)
-            .single()
-
-          // Check if this exchange chat already exists (avoid duplicates)
-          const existingChatIndex = allChats.findIndex(chat => 
-            chat.id === `money_exchange_${exchange.unique_id || exchange.id}` ||
-            chat.id === `exchange_${exchange.unique_id || exchange.id}`
-          )
-
-          if (existingChatIndex === -1) {
-            allChats.push({
-              id: `money_exchange_${exchange.unique_id || exchange.id}`,
-              type: 'exchange',
-              title: 'Money Exchange Chat',
-              subtitle: `${exchange.from_currency}${exchange.from_amount.toLocaleString()} → ${exchange.to_currency}${exchange.to_amount.toLocaleString()} • ${exchange.status}`,
-              lastMessage: lastMessage.content,
-              lastMessageTime: lastMessage.created_at,
-              unreadCount: unreadCount || 0,
-              isOnline: presenceData?.is_online || false,
-              avatar: '💰',
-              exchangeDetails: {
-                fromAmount: exchange.from_amount,
-                fromCurrency: exchange.from_currency,
-                toAmount: exchange.to_amount,
-                toCurrency: exchange.to_currency,
-                exchangeId: exchange.unique_id || exchange.id,
-                status: exchange.status
-              },
-              chatPath: `/chat/exchange/${exchange.unique_id || exchange.id}`
-            })
-          }
-        }
-      }
-
-      // Also check for any exchange chats where user might be the receiver
-      const { data: receivedExchanges, error: receivedError } = await supabase
-        .from('exchange_messages')
-        .select(`
-          exchange_id,
-          content,
-          created_at,
-          sender_id,
-          receiver_id
-        `)
-        .eq('receiver_id', user.id)
-        .order('created_at', { ascending: false })
-
-      if (!receivedError && receivedExchanges) {
-        const receivedExchangeIds = [...new Set(receivedExchanges.map(msg => msg.exchange_id))]
-        
-        for (const exchangeId of receivedExchangeIds) {
-          // Skip if we already have this exchange
-          if (allChats.some(chat => chat.exchangeDetails?.exchangeId === exchangeId)) continue
-
-          const lastMessage = receivedExchanges.find(msg => msg.exchange_id === exchangeId)
-          if (!lastMessage) continue
-
-          // Try to get exchange details
-          const exchangeResult = await moneyExchangeService.getExchangeRequestByUniqueId(exchangeId)
-          
-          if (exchangeResult.success && exchangeResult.data) {
-            const exchange = exchangeResult.data
-
-            // Count unread messages
-            const { count: unreadCount } = await supabase
-              .from('exchange_messages')
-              .select('*', { count: 'exact', head: true })
-              .eq('exchange_id', exchangeId)
-              .neq('sender_id', user.id)
-              .is('read_at', null)
-
-            // Check sender's online status
-            const { data: presenceData } = await supabase
-              .from('user_presence')
-              .select('is_online')
-              .eq('user_id', lastMessage.sender_id)
-              .single()
-
-            allChats.push({
-              id: `money_exchange_received_${exchangeId}`,
-              type: 'exchange',
-              title: 'Money Exchange Chat',
-              subtitle: `${exchange.from_currency}${exchange.from_amount.toLocaleString()} → ${exchange.to_currency}${exchange.to_amount.toLocaleString()} • ${exchange.status}`,
-              lastMessage: lastMessage.content,
-              lastMessageTime: lastMessage.created_at,
-              unreadCount: unreadCount || 0,
-              isOnline: presenceData?.is_online || false,
-              avatar: '💰',
-              exchangeDetails: {
-                fromAmount: exchange.from_amount,
-                fromCurrency: exchange.from_currency,
-                toAmount: exchange.to_amount,
-                toCurrency: exchange.to_currency,
-                exchangeId: exchangeId,
-                status: exchange.status
-              },
-              chatPath: `/chat/exchange/${exchangeId}`
-            })
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error fetching money exchange chats:', error)
-    }
-  }
-
-  const fetchGeneralChats = async (allChats: ChatItem[]) => {
-    try {
-      // Get general channel
-      const { data: generalChannel } = await supabase
-        .from('channels')
-        .select('*')
-        .eq('name', 'general')
-        .single()
-
-      if (!generalChannel) return
-
-      // Get last message
-      const { data: messages } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('channel_id', generalChannel.id)
-        .order('created_at', { ascending: false })
-        .limit(1)
-
-      const lastMessage = messages?.[0]
-      if (!lastMessage) return
-
-      // Get unread count
-      const { count: unreadCount } = await supabase
-        .from('messages')
-        .select('*', { count: 'exact', head: true })
-        .eq('channel_id', generalChannel.id)
-        .neq('user_id', user.id)
-        .is('read_at', null)
-
-      allChats.push({
-        id: 'general',
-        type: 'general',
-        title: 'General Chat',
-        subtitle: 'Community discussions',
-        lastMessage: lastMessage.content,
-        lastMessageTime: lastMessage.created_at,
-        unreadCount: unreadCount || 0,
-        isOnline: true,
-        avatar: '💬',
-        chatPath: '/chat'
-      })
-    } catch (error) {
-      console.error('Error fetching general chats:', error)
     }
   }
 
@@ -440,12 +251,14 @@ const ChatListPage: React.FC = () => {
 
   const getChatIcon = (type: string) => {
     switch (type) {
-      case 'product':
+      case 'shop':
         return <ShoppingCart className="w-5 h-5 text-blue-600" />
       case 'exchange':
         return <DollarSign className="w-5 h-5 text-green-600" />
+      case 'mission':
+        return <Target className="w-5 h-5 text-purple-600" />
       case 'general':
-        return <MessageCircle className="w-5 h-5 text-purple-600" />
+        return <MessageCircle className="w-5 h-5 text-gray-600" />
       default:
         return <MessageCircle className="w-5 h-5 text-gray-600" />
     }
@@ -507,7 +320,6 @@ const ChatListPage: React.FC = () => {
       <div className="min-h-screen bg-gray-100">
         {/* Mobile Header */}
         <div className="bg-[#B91C1C] text-white">
-          {/* Top bar with logo and title */}
           <div className="flex items-center justify-between p-4">
             <button 
               onClick={handleBeliYoClick}
@@ -524,10 +336,9 @@ const ChatListPage: React.FC = () => {
             </button>
           </div>
           
-          {/* Navigation Grid - 3 Rows Structure */}
+          {/* Navigation Grid */}
           <div className="px-4 pb-4">
             <div className="space-y-4 text-sm">
-              {/* Row 1 - 3 items */}
               <div className="grid grid-cols-3 gap-2">
                 <button 
                   onClick={() => navigate('/my-shop')}
@@ -554,7 +365,6 @@ const ChatListPage: React.FC = () => {
                 </button>
               </div>
               
-              {/* Row 2 - 3 items */}
               <div className="grid grid-cols-3 gap-2">
                 <button 
                   onClick={() => navigate('/my-page')}
@@ -581,7 +391,6 @@ const ChatListPage: React.FC = () => {
                 </button>
               </div>
               
-              {/* Row 3 - 1 item centered */}
               <div className="flex justify-center">
                 <button 
                   onClick={() => navigate('/my-page')}
@@ -612,9 +421,10 @@ const ChatListPage: React.FC = () => {
                 <div className="space-y-2">
                   {[
                     { value: 'all', label: 'All Chats', icon: MessageCircle },
-                    { value: 'product', label: 'Product Chats', icon: ShoppingCart },
+                    { value: 'shop', label: 'Shop Chats', icon: ShoppingCart },
                     { value: 'exchange', label: 'Exchange Chats', icon: DollarSign },
-                    { value: 'general', label: 'General Chat', icon: MessageCircle }
+                    { value: 'mission', label: 'Mission Chats', icon: Target },
+                    { value: 'general', label: 'Direct Messages', icon: MessageCircle }
                   ].map((filter) => {
                     const Icon = filter.icon
                     return (
@@ -678,22 +488,10 @@ const ChatListPage: React.FC = () => {
                   className="bg-white rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
                 >
                   <div className="flex items-center gap-3">
-                    {/* Avatar/Image */}
                     <div className="relative w-12 h-12 flex-shrink-0">
-                      {chat.productImage ? (
-                        <img
-                          src={chat.productImage}
-                          alt={chat.title}
-                          className="w-12 h-12 rounded-full object-cover"
-                          onError={(e) => {
-                            e.currentTarget.src = 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?w=100'
-                          }}
-                        />
-                      ) : (
-                        <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-2xl">
-                          {chat.avatar}
-                        </div>
-                      )}
+                      <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center text-2xl">
+                        {chat.avatar}
+                      </div>
                       {chat.isOnline && (
                         <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
                       )}
@@ -704,26 +502,15 @@ const ChatListPage: React.FC = () => {
                       )}
                     </div>
 
-                    {/* Chat Info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         {getChatIcon(chat.type)}
                         <h3 className="font-semibold text-gray-900 text-sm truncate">{chat.title}</h3>
-                        {chat.exchangeDetails?.status && (
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                            chat.exchangeDetails.status === 'completed' ? 'bg-green-100 text-green-800' :
-                            chat.exchangeDetails.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-gray-100 text-gray-800'
-                          }`}>
-                            {chat.exchangeDetails.status}
-                          </span>
-                        )}
                       </div>
                       <p className="text-xs text-gray-500 mb-1 truncate">{chat.subtitle}</p>
                       <p className="text-sm text-gray-600 truncate">{chat.lastMessage}</p>
                     </div>
 
-                    {/* Time and Arrow */}
                     <div className="flex flex-col items-end gap-1">
                       <span className="text-xs text-gray-400">{formatTime(chat.lastMessageTime)}</span>
                       <ChevronRight className="w-4 h-4 text-gray-400" />
@@ -753,7 +540,7 @@ const ChatListPage: React.FC = () => {
               <span className="text-xs font-medium">Exchange</span>
             </button>
             <button 
-              onClick={() => navigate('/chat')}
+              onClick={() => navigate('/chat-list')}
               className="flex flex-col items-center py-2 px-3 text-[#B91C1C] font-medium"
             >
               <span className="text-xl mb-1">💬</span>
@@ -838,8 +625,9 @@ const ChatListPage: React.FC = () => {
               <div className="flex gap-2">
                 {[
                   { value: 'all', label: 'All', icon: MessageCircle },
-                  { value: 'product', label: 'Products', icon: ShoppingCart },
-                  { value: 'exchange', label: 'Exchange', icon: DollarSign }
+                  { value: 'shop', label: 'Shop', icon: ShoppingCart },
+                  { value: 'exchange', label: 'Exchange', icon: DollarSign },
+                  { value: 'mission', label: 'Mission', icon: Target }
                 ].map((filter) => {
                   const Icon = filter.icon
                   return (
@@ -891,22 +679,10 @@ const ChatListPage: React.FC = () => {
                     index !== filteredChats.length - 1 ? 'border-b border-gray-100' : ''
                   }`}
                 >
-                  {/* Avatar/Image */}
                   <div className="relative w-14 h-14 flex-shrink-0">
-                    {chat.productImage ? (
-                      <img
-                        src={chat.productImage}
-                        alt={chat.title}
-                        className="w-14 h-14 rounded-full object-cover"
-                        onError={(e) => {
-                          e.currentTarget.src = 'https://images.unsplash.com/photo-1560393464-5c69a73c5770?w=100'
-                        }}
-                      />
-                    ) : (
-                      <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center text-2xl">
-                        {chat.avatar}
-                      </div>
-                    )}
+                    <div className="w-14 h-14 bg-gray-100 rounded-full flex items-center justify-center text-2xl">
+                      {chat.avatar}
+                    </div>
                     {chat.isOnline && (
                       <div className="absolute -bottom-1 -right-1 w-4 h-4 bg-green-500 border-2 border-white rounded-full"></div>
                     )}
@@ -917,26 +693,15 @@ const ChatListPage: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Chat Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       {getChatIcon(chat.type)}
                       <h3 className="font-semibold text-gray-900 truncate">{chat.title}</h3>
-                      {chat.exchangeDetails?.status && (
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          chat.exchangeDetails.status === 'completed' ? 'bg-green-100 text-green-800' :
-                          chat.exchangeDetails.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
-                          {chat.exchangeDetails.status}
-                        </span>
-                      )}
                     </div>
                     <p className="text-sm text-gray-500 mb-1 truncate">{chat.subtitle}</p>
                     <p className="text-gray-600 truncate">{chat.lastMessage}</p>
                   </div>
 
-                  {/* Time and Arrow */}
                   <div className="flex flex-col items-end gap-2">
                     <div className="flex items-center gap-2 text-sm text-gray-400">
                       <Clock className="w-4 h-4" />

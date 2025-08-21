@@ -4,75 +4,77 @@ import { ChatContext } from '../services/unifiedChatService'
 
 interface ChatIntegrationProps {
   context: ChatContext
-  otherUserId: string // Required for 1:1 conversations
+  otherUserId: string
   onBack?: () => void
   className?: string
-  style?: React.CSSProperties
 }
 
 /**
- * Chat Integration Component
+ * ChatIntegration Component - Wrapper for UnifiedChat
  * 
- * This component provides a seamless way to integrate the unified 1:1 chat system
- * into any part of the application. It automatically handles the context
- * and provides a consistent chat experience across all features.
+ * This component serves as an integration layer between the application
+ * and the unified chat system. It provides a consistent interface for
+ * different chat contexts (shop, exchange, mission, etc.)
  * 
- * Usage examples:
- * 
- * // For shop product chat between two users
- * <ChatIntegration 
- *   context={{ type: 'shop', id: productId, title: 'Product Chat' }}
- *   otherUserId={sellerId}
- *   onBack={() => navigate('/shop')}
- * />
- * 
- * // For money exchange chat between two users
- * <ChatIntegration 
- *   context={{ type: 'exchange', id: exchangeId, title: 'Exchange Chat' }}
- *   otherUserId={exchangePartnerId}
- *   onBack={() => navigate('/money-exchange')}
- * />
- * 
- * // For mission chat between two users
- * <ChatIntegration 
- *   context={{ type: 'mission', id: missionId, title: 'Mission Chat' }}
- *   otherUserId={missionCreatorId}
- *   onBack={() => navigate('/missions')}
- * />
- * 
- * // For general direct message between two users
- * <ChatIntegration 
- *   context={{ type: 'general' }}
- *   otherUserId={recipientId}
- * />
+ * FIXED: Now properly validates required parameters before rendering
  */
 const ChatIntegration: React.FC<ChatIntegrationProps> = ({ 
   context, 
-  otherUserId,
+  otherUserId, 
   onBack, 
-  className = '',
-  style 
+  className = '' 
 }) => {
-  if (!otherUserId) {
+  // FIXED: Add validation for required parameters
+  if (!context) {
     return (
-      <div className={`flex items-center justify-center h-full bg-gray-50 ${className}`} style={style}>
+      <div className={`flex items-center justify-center h-full bg-gray-50 ${className}`}>
         <div className="text-center">
-          <p className="text-gray-600 mb-2">Unable to start conversation</p>
-          <p className="text-sm text-gray-400">Other user ID is required for 1:1 chat</p>
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl">❌</span>
+          </div>
+          <p className="text-gray-600 mb-2">Chat context is required</p>
+          <p className="text-sm text-gray-400">Unable to initialize chat without context</p>
         </div>
       </div>
     )
   }
 
+  if (!otherUserId) {
+    return (
+      <div className={`flex items-center justify-center h-full bg-gray-50 ${className}`}>
+        <div className="text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-2xl">❌</span>
+          </div>
+          <p className="text-gray-600 mb-2">Chat recipient is required</p>
+          <p className="text-sm text-gray-400 mb-4">1:1 conversations require a specific user</p>
+          {onBack && (
+            <button
+              onClick={onBack}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Go Back
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
+
+  console.log('ChatIntegration rendering with:', {
+    context,
+    otherUserId,
+    hasOnBack: !!onBack
+  })
+
+  // Render the unified chat component
   return (
-    <div className={className} style={style}>
-      <UnifiedChat 
-        context={context}
-        otherUserId={otherUserId}
-        onBack={onBack}
-        className="h-full"
-      />
-    </div>
+    <UnifiedChat
+      context={context}
+      otherUserId={otherUserId}
+      onBack={onBack}
+      className={className}
+    />
   )
 }
 

@@ -337,10 +337,10 @@ const MoneyExchangePage: React.FC = () => {
   }
 
   /**
-   * Navigate to exchange-specific chat page
-   * Uses unique_id if available, falls back to regular id for backward compatibility
+   * Navigate to exchange-specific chat page with proper user ID resolution
+   * FIXED: Now properly resolves and passes the exchange partner's user ID
    */
-  const handleChatWithUser = (request: ExchangeRequest) => {
+  const handleChatWithUser = async (request: ExchangeRequest) => {
     const exchangeId = request.unique_id || request.id
     
     if (!exchangeId) {
@@ -349,8 +349,35 @@ const MoneyExchangePage: React.FC = () => {
       return
     }
 
-    // Navigate to the exchange-specific chat page
-    navigate(`/chat/exchange/${exchangeId}`)
+    if (!user) {
+      console.error('User not authenticated')
+      alert('Please log in to start a chat')
+      return
+    }
+
+    // FIXED: Properly resolve the exchange partner's user ID
+    const otherUserId = request.user_id
+    
+    if (!otherUserId) {
+      console.error('No exchange partner user ID found for request:', request)
+      alert('Unable to start chat - exchange partner not found')
+      return
+    }
+
+    // Prevent users from chatting with themselves
+    if (otherUserId === user.id) {
+      alert('You cannot chat with yourself')
+      return
+    }
+
+    console.log('Navigating to chat:', {
+      exchangeId,
+      otherUserId,
+      currentUser: user.id
+    })
+
+    // Navigate to the exchange-specific chat page with both IDs
+    navigate(`/chat/exchange/${exchangeId}/${otherUserId}`)
   }
 
   if (isMobile) {
@@ -598,7 +625,7 @@ const MoneyExchangePage: React.FC = () => {
                       )}
                     </div>
                     
-                    {/* Chat with User Button - Updated with dynamic routing */}
+                    {/* Chat with User Button - FIXED with proper user ID resolution */}
                     <div className="flex justify-center">
                       <button 
                         onClick={() => handleChatWithUser(request)}

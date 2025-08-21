@@ -10,10 +10,13 @@ import ShopPage from './pages/ShopPage'
 import ProductDetailPage from './pages/ProductDetailPage'
 import MoneyExchangePage from './pages/MoneyExchangePage'
 import RequestExchangePage from './pages/RequestExchangePage'
+import EditExchangePage from './pages/EditExchangePage'
 import MissionBoardPage from './pages/MissionBoardPage'
 import AddMissionPage from './pages/AddMissionPage'
+import EditMissionPage from './pages/EditMissionPage'
 import MyPage from './pages/MyPage'
 import MyShopPage from './pages/MyShopPage'
+import EditProductPage from './pages/EditProductPage'
 import ExchangeHistoryPage from './pages/ExchangeHistoryPage'
 import SellerPage from './pages/SellerPage'
 
@@ -46,10 +49,21 @@ function App() {
             <Route path="/product/:id" element={<ProductDetailPage />} />
             <Route path="/shop/product/:id" element={<ProductDetailPage />} />
             
+            {/* Edit Product Route */}
+            <Route path="/edit-product/:id" element={<EditProductPage />} />
+            
             <Route path="/money-exchange" element={<MoneyExchangePage />} />
             <Route path="/request-exchange" element={<RequestExchangePage />} />
+            
+            {/* Edit Exchange Route */}
+            <Route path="/edit-exchange/:id" element={<EditExchangePage />} />
+            
             <Route path="/mission-board" element={<MissionBoardPage />} />
             <Route path="/add-mission" element={<AddMissionPage />} />
+            
+            {/* Edit Mission Route */}
+            <Route path="/edit-mission/:missionId" element={<EditMissionPage />} />
+            
             <Route path="/missions" element={<MissionBoardPage />} />
             <Route path="/mission" element={<MissionBoardPage />} />
             <Route path="/my-page" element={<MyPage />} />

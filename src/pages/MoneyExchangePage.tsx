@@ -474,7 +474,7 @@ const MoneyExchangePage: React.FC = () => {
             {/* Request Exchange Button */}
             <div className="mt-6">
               <button
-                onClick={() => navigate('/request-exchange?tab=exchange')}
+                onClick={() => navigate('/request-exchange')}
                 className="w-full bg-white text-[#B91C1C] py-3 rounded-full font-bold text-lg hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
               >
                 <ArrowRightLeft className="w-5 h-5" />
@@ -535,7 +535,7 @@ const MoneyExchangePage: React.FC = () => {
               <div className="text-center">
                 <div className="text-gray-500 mb-4">No exchange requests found</div>
                 <button
-                  onClick={() => navigate('/request-exchange?tab=exchange')}
+                  onClick={() => navigate('/request-exchange')}
                   className="text-[#B91C1C] hover:underline"
                 >
                   Be the first to post an exchange request
@@ -700,7 +700,7 @@ const MoneyExchangePage: React.FC = () => {
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">Recent Exchange Requests</h2>
               <button
-                onClick={() => navigate('/request-exchange?tab=exchange')}
+                onClick={() => navigate('/request-exchange')}
                 className="flex items-center gap-2 bg-[#B91C1C] text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors"
               >
                 <ArrowRightLeft className="w-5 h-5" />
@@ -716,7 +716,7 @@ const MoneyExchangePage: React.FC = () => {
                 <div className="text-center">
                   <div className="text-gray-500 mb-4">No exchange requests found</div>
                   <button
-                    onClick={() => navigate('/request-exchange?tab=exchange')}
+                    onClick={() => navigate('/request-exchange')}
                     className="text-[#B91C1C] hover:underline"
                   >
                     Be the first to post an exchange request

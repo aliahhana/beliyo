@@ -9,10 +9,13 @@ import SignupPage from './pages/SignupPage'
 import ShopPage from './pages/ShopPage'
 import ProductDetailPage from './pages/ProductDetailPage'
 import MoneyExchangePage from './pages/MoneyExchangePage'
+import RequestExchangePage from './pages/RequestExchangePage'
 import MissionBoardPage from './pages/MissionBoardPage'
+import AddMissionPage from './pages/AddMissionPage'
 import MyPage from './pages/MyPage'
 import MyShopPage from './pages/MyShopPage'
 import ExchangeHistoryPage from './pages/ExchangeHistoryPage'
+import SellerPage from './pages/SellerPage'
 
 // Updated Chat Pages - Now using Unified 1:1 Chat System
 import ChatListPage from './pages/ChatListPage'
@@ -37,13 +40,18 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/shop" element={<ShopPage />} />
+            <Route path="/seller" element={<SellerPage />} />
             
             {/* Product Detail Routes */}
             <Route path="/product/:id" element={<ProductDetailPage />} />
             <Route path="/shop/product/:id" element={<ProductDetailPage />} />
             
             <Route path="/money-exchange" element={<MoneyExchangePage />} />
+            <Route path="/request-exchange" element={<RequestExchangePage />} />
+            <Route path="/mission-board" element={<MissionBoardPage />} />
+            <Route path="/add-mission" element={<AddMissionPage />} />
             <Route path="/missions" element={<MissionBoardPage />} />
+            <Route path="/mission" element={<MissionBoardPage />} />
             <Route path="/my-page" element={<MyPage />} />
             <Route path="/my-shop" element={<MyShopPage />} />
             <Route path="/exchange-history" element={<ExchangeHistoryPage />} />

@@ -71,6 +71,20 @@ const MissionBoardPage: React.FC = () => {
     }
 
     try {
+      // Find the mission to get the mission owner's user ID
+      const mission = missions.find(m => m.id === missionId)
+      if (!mission) {
+        console.error('Mission not found:', missionId)
+        alert('Mission not found. Please try again.')
+        return
+      }
+
+      // Prevent users from accepting their own missions
+      if (mission.user_id === user.id) {
+        alert('You cannot accept your own mission.')
+        return
+      }
+
       const { error } = await supabase
         .from('missions')
         .update({
@@ -87,7 +101,10 @@ const MissionBoardPage: React.FC = () => {
       }
 
       console.log(`Accepted mission ${missionId}`)
-      // The real-time subscription will automatically update the UI
+      
+      // Navigate to chat with mission owner after successful acceptance
+      navigate(`/chat/mission/${missionId}/${mission.user_id}`)
+      
     } catch (error) {
       console.error('Error accepting mission:', error)
       alert('Failed to accept mission. Please try again.')

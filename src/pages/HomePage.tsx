@@ -32,8 +32,8 @@ const HomePage: React.FC = () => {
           <div className="flex items-center justify-between">
             {/* Logo */}
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-                <img src="https://imgur.com/zxuU9XH" alt="Logo" className="w-8 h-8" />
+              <div className="w-10 h-10 rounded-full flex items-center justify-center">
+                <img src="https://i.imgur.com/zxuU9XH.png" alt="Logo" className="w-10 h-10" />
               </div>
               <span className="text-white text-xl font-bold">BeliYo!</span>
             </div>
@@ -71,12 +71,12 @@ const HomePage: React.FC = () => {
             <div className="bg-[#B91C1C] text-white px-6 py-3 text-sm font-medium">
               Home
             </div>
-            <div className="bg-gray-100 text-gray-700 px-6 py-3 text-sm font-medium flex-1 text-center">
+            <Link 
+              to="/features-information"
+              className="bg-gray-100 text-gray-700 px-6 py-3 text-sm font-medium flex-1 text-center hover:bg-gray-200 transition-colors"
+            >
               Features Information
-            </div>
-            <div className="bg-gray-100 text-gray-700 px-6 py-3 text-sm font-medium">
-              Contact Us
-            </div>
+            </Link>
           </div>
         </div>
 
@@ -84,7 +84,7 @@ const HomePage: React.FC = () => {
         <div className="relative">
           <div className="h-64 relative overflow-hidden">
             <img 
-              src="https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?w=800&h=600&fit=crop" 
+              src="https://apicms.thestar.com.my/uploads/images/2024/10/22/2978595.webp?w=800&h=600&fit=crop" 
               alt="Money background"
               className="w-full h-full object-cover"
             />
@@ -92,9 +92,9 @@ const HomePage: React.FC = () => {
             
             <div className="absolute inset-0 flex flex-col justify-center px-6">
               <h1 className="text-white text-2xl font-bold leading-tight mb-4">
-                CURRENCY<br />
-                TENGAH NAIK NI<br />
-                TUKAR CEPAT !
+                Tukar.<br />
+                Jual.<br />
+                BeliYo!
               </h1>
             </div>
           </div>
@@ -102,7 +102,8 @@ const HomePage: React.FC = () => {
           {/* CTA Section */}
           <div className="bg-gray-100 px-6 py-4 flex items-center justify-between">
             <span className="text-gray-800 text-sm font-medium">
-              Brighten up your style with our bold and fun new arrivals
+              From students, to students. <br />
+							#KitaJagaKita
             </span>
             <Link 
               to="/shop"
@@ -120,7 +121,7 @@ const HomePage: React.FC = () => {
             {/* Shop Card */}
             <Link to="/shop" className="group relative overflow-hidden rounded-lg shadow-lg aspect-square">
               <img 
-                src="https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=400&h=400&fit=crop" 
+                src="https://cdn.pixabay.com/photo/2023/07/17/13/20/squirrel-8132645_1280.jpg?w=400&h=400&fit=crop" 
                 alt="Shop"
                 className="w-full h-full object-cover"
               />
@@ -136,7 +137,7 @@ const HomePage: React.FC = () => {
             {/* Money Exchange Card */}
             <Link to="/money-exchange" className="group relative overflow-hidden rounded-lg shadow-lg aspect-square">
               <img 
-                src="https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=400&h=400&fit=crop" 
+                src="https://cdn.pixabay.com/photo/2016/03/18/12/27/don-1264858_1280.jpg?w=400&h=400&fit=crop" 
                 alt="Money Exchange"
                 className="w-full h-full object-cover"
               />
@@ -155,7 +156,7 @@ const HomePage: React.FC = () => {
             {/* Mission Card */}
             <Link to="/mission-board" className="group relative overflow-hidden rounded-lg shadow-lg aspect-square">
               <img 
-                src="https://images.unsplash.com/photo-1606787366850-de6330128bfc?w=400&h=400&fit=crop" 
+                src="https://cdn.pixabay.com/photo/2019/03/26/08/54/arrows-4082046_1280.jpg?w=400&h=400&fit=crop" 
                 alt="Mission"
                 className="w-full h-full object-cover"
               />
@@ -171,7 +172,7 @@ const HomePage: React.FC = () => {
             {/* My Page Card */}
             <Link to="/my-page" className="group relative overflow-hidden rounded-lg shadow-lg aspect-square">
               <img 
-                src="https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400&h=400&fit=crop" 
+                src="https://cdn.pixabay.com/photo/2017/08/06/22/51/black-2597198_1280.jpg?w=400&h=400&fit=crop" 
                 alt="My Page"
                 className="w-full h-full object-cover"
               />
@@ -219,7 +220,7 @@ const HomePage: React.FC = () => {
         <div className="w-1/2 relative">
           <div className="absolute inset-0 z-0">
             <img 
-              src="https://apicms.thestar.com.my/uploads/images/2024/10/22/2978595.webp" 
+              src="https://apicms.thestar.com.my/uploads/images/2024/10/22/2978595.webp?w=1200&h=900&fit=crop" 
               alt="Money background"
               className="w-full h-full object-cover"
             />
@@ -228,12 +229,13 @@ const HomePage: React.FC = () => {
           
           <div className="relative z-10 h-full flex flex-col justify-center px-12">
             <h1 className="text-5xl font-bold text-white mb-6 leading-tight">
-              CARI. <br />
-              JUAL. <br />
-              BELIYO!
+              Tukar.<br />
+              Jual.<br />
+              BeliYo!
             </h1>
             <p className="text-white text-lg mb-8 max-w-md">
-              From students, to students. 
+              From students, to students. <br />
+							#KitaJagaKita
             </p>
             <Link 
               to="/shop"
@@ -250,7 +252,7 @@ const HomePage: React.FC = () => {
             {/* Shop Card */}
             <Link to="/shop" className="group relative overflow-hidden rounded-lg shadow-lg">
               <img 
-                src="https://pixabay.com/photos/squirrel-shopping-hazelnut-8132645/" 
+                src="https://cdn.pixabay.com/photo/2023/07/17/13/20/squirrel-8132645_1280.jpg?w=400&h=400&fit=crop" 
                 alt="Shop"
                 className="w-full h-full object-cover"
               />
@@ -265,7 +267,7 @@ const HomePage: React.FC = () => {
             {/* Money Exchange Card */}
             <Link to="/money-exchange" className="group relative overflow-hidden rounded-lg shadow-lg">
               <img 
-                src="https://pixabay.com/photos/don-saved-payment-money-tax-gold-1264858/" 
+                src="https://cdn.pixabay.com/photo/2016/03/18/12/27/don-1264858_1280.jpg?w=400&h=400&fit=crop" 
                 alt="Money Exchange"
                 className="w-full h-full object-cover"
               />
@@ -280,7 +282,7 @@ const HomePage: React.FC = () => {
             {/* Mission Card */}
             <Link to="/mission-board" className="group relative overflow-hidden rounded-lg shadow-lg">
               <img 
-                src="https://pixabay.com/photos/arrows-quiver-archery-bow-4082046/" 
+                src="https://cdn.pixabay.com/photo/2019/03/26/08/54/arrows-4082046_1280.jpg?w=400&h=400&fit=crop" 
                 alt="Mission"
                 className="w-full h-full object-cover"
               />
@@ -295,7 +297,7 @@ const HomePage: React.FC = () => {
             {/* My Page Card */}
             <Link to="/my-page" className="group relative overflow-hidden rounded-lg shadow-lg">
               <img 
-                src="https://pixabay.com/photos/black-red-suit-tie-clothing-2597198/" 
+                src="https://cdn.pixabay.com/photo/2017/08/06/22/51/black-2597198_1280.jpg?w=400&h=400&fit=crop" 
                 alt="My Page"
                 className="w-full h-full object-cover"
               />

@@ -365,7 +365,7 @@ const ChatListPage: React.FC = () => {
               {/* Row 2 - 2 items */}
               <div className="grid grid-cols-2 gap-2">
                 <button 
-                  onClick={() => navigate('/my-page')}
+                  onClick={() => navigate('/mission-history')}
                   className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
                 >
                   <Target className="w-6 h-6" />
@@ -404,7 +404,6 @@ const ChatListPage: React.FC = () => {
                     { value: 'shop', label: 'Shop Chats', icon: ShoppingCart },
                     { value: 'exchange', label: 'Exchange Chats', icon: DollarSign },
                     { value: 'mission', label: 'Mission Chats', icon: Target },
-                    { value: 'general', label: 'Direct Messages', icon: MessageCircle }
                   ].map((filter) => {
                     const Icon = filter.icon
                     return (

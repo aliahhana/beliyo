@@ -433,7 +433,7 @@ const MyShopPage: React.FC = () => {
                 </button>
                 
                 <button 
-                  onClick={() => navigate('/my-page')}
+                  onClick={() => navigate('/exchange-history')}
                   className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
                 >
                   <RefreshCw className="w-6 h-6" />
@@ -444,7 +444,7 @@ const MyShopPage: React.FC = () => {
               {/* Row 2 - 2 items centered */}
               <div className="flex justify-center gap-2">
                 <button 
-                  onClick={() => navigate('/my-page')}
+                  onClick={() => navigate('/mission-history')}
                   className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors w-1/3"
                 >
                   <Target className="w-6 h-6" />
@@ -452,7 +452,7 @@ const MyShopPage: React.FC = () => {
                 </button>
                 
                 <button 
-                  onClick={() => navigate('/my-page')}
+                  onClick={() => navigate('/chat-list')}
                   className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors w-1/3"
                 >
                   <MessageCircle className="w-6 h-6" />

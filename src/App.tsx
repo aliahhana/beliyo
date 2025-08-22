@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext'
 
 // Pages
 import HomePage from './pages/HomePage'
+import FeaturesInformationPage from './pages/FeaturesInformationPage'
 import LoginPage from './pages/LoginPage'
 import SignupPage from './pages/SignupPage'
 import ShopPage from './pages/ShopPage'
@@ -41,6 +42,7 @@ function App() {
           <Routes>
             {/* Main Pages */}
             <Route path="/" element={<HomePage />} />
+            <Route path="/features-information" element={<FeaturesInformationPage />} />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/shop" element={<ShopPage />} />

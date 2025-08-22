@@ -115,7 +115,7 @@ const ExchangeHistoryPage: React.FC = () => {
     { icon: ShoppingCart, label: 'Purchase History', path: '/my-page' },
     { icon: RefreshCw, label: 'Exchange History', path: '/exchange-history', active: true },
     { icon: Target, label: 'Mission', path: '/mission-history' },
-    { icon: MessageCircle, label: 'Chat List', path: '/my-page' }
+    { icon: MessageCircle, label: 'Chat List', path: '/chat-list' }
   ]
 
   const handleBeliYoClick = () => {
@@ -223,7 +223,7 @@ const ExchangeHistoryPage: React.FC = () => {
               {/* Row 2 - 2 items */}
               <div className="grid grid-cols-2 gap-2">
                 <button 
-                  onClick={() => navigate('/my-page')}
+                  onClick={() => navigate('/mission-history')}
                   className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
                 >
                   <Target className="w-6 h-6" />
@@ -231,7 +231,7 @@ const ExchangeHistoryPage: React.FC = () => {
                 </button>
                 
                 <button 
-                  onClick={() => navigate('/my-page')}
+                  onClick={() => navigate('/chat-list')}
                   className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
                 >
                   <MessageCircle className="w-6 h-6" />
@@ -427,7 +427,7 @@ const ExchangeHistoryPage: React.FC = () => {
         <div className="flex-1 p-8">
           <div className="flex items-center gap-4 mb-8">
             <button 
-              onClick={() => navigate('/my-page')}
+              onClick={() => navigate('/exchange-history')}
               className="text-gray-600 hover:text-gray-900 transition-colors"
             >
               <ArrowLeft className="w-6 h-6" />

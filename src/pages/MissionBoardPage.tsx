@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import MissionCard from '../components/MissionCard'
 import Header from '../components/Header'
-import { Plus } from 'lucide-react'
+import { Plus, Search } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import type { Mission } from '../lib/supabase'
@@ -12,6 +12,9 @@ const MissionBoardPage: React.FC = () => {
   const { user } = useAuth()
   const [missions, setMissions] = useState<Mission[]>([])
   const [loading, setLoading] = useState(true)
+  const [isMobile, setIsMobile] = useState(false)
+  const [showSearch, setShowSearch] = useState(false)
+  const [searchQuery, setSearchQuery] = useState('')
 
   // Fetch missions from Supabase
   const fetchMissions = async () => {
@@ -27,9 +30,6 @@ const MissionBoardPage: React.FC = () => {
         return
       }
 
-      // Show all missions to all users:
-      // - Pending missions (available for anyone to accept)
-      // - Accepted missions (show as in progress for the accepter, available for others to see but not accept)
       setMissions(data || [])
     } catch (error) {
       console.error('Error fetching missions:', error)
@@ -42,7 +42,6 @@ const MissionBoardPage: React.FC = () => {
   useEffect(() => {
     fetchMissions()
 
-    // Subscribe to real-time changes
     const channel = supabase
       .channel('missions_changes')
       .on(
@@ -54,7 +53,7 @@ const MissionBoardPage: React.FC = () => {
         },
         (payload) => {
           console.log('Real-time update:', payload)
-          fetchMissions() // Refetch missions when changes occur
+          fetchMissions()
         }
       )
       .subscribe()
@@ -64,6 +63,16 @@ const MissionBoardPage: React.FC = () => {
     }
   }, [user?.id])
 
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
   const handleAccept = async (missionId: string) => {
     if (!user) {
       navigate('/login')
@@ -71,7 +80,6 @@ const MissionBoardPage: React.FC = () => {
     }
 
     try {
-      // Find the mission to get the mission owner's user ID
       const mission = missions.find(m => m.id === missionId)
       if (!mission) {
         console.error('Mission not found:', missionId)
@@ -79,7 +87,6 @@ const MissionBoardPage: React.FC = () => {
         return
       }
 
-      // Prevent users from accepting their own missions
       if (mission.user_id === user.id) {
         alert('You cannot accept your own mission.')
         return
@@ -101,8 +108,6 @@ const MissionBoardPage: React.FC = () => {
       }
 
       console.log(`Accepted mission ${missionId}`)
-      
-      // Navigate to chat with mission owner after successful acceptance
       navigate(`/chat/mission/${missionId}/${mission.user_id}`)
       
     } catch (error) {
@@ -135,7 +140,6 @@ const MissionBoardPage: React.FC = () => {
       }
 
       console.log(`Quit mission ${missionId}`)
-      // The real-time subscription will automatically update the UI
     } catch (error) {
       console.error('Error quitting mission:', error)
       alert('Failed to quit mission. Please try again.')
@@ -158,7 +162,6 @@ const MissionBoardPage: React.FC = () => {
     try {
       console.log(`Attempting to delete mission ${missionId} for user ${user.id}`)
       
-      // First, verify the mission exists and belongs to the user
       const { data: missionCheck, error: checkError } = await supabase
         .from('missions')
         .select('id, user_id')
@@ -172,10 +175,8 @@ const MissionBoardPage: React.FC = () => {
         return
       }
 
-      // Optimistically remove from UI first
       setMissions(prevMissions => prevMissions.filter(mission => mission.id !== missionId))
 
-      // Delete from database with explicit conditions
       const { data: deletedData, error: deleteError } = await supabase
         .from('missions')
         .delete()
@@ -186,7 +187,6 @@ const MissionBoardPage: React.FC = () => {
       if (deleteError) {
         console.error('Error deleting mission from database:', deleteError)
         alert('Failed to delete mission. Please try again.')
-        // Revert the optimistic update by refetching
         await fetchMissions()
         return
       }
@@ -194,23 +194,19 @@ const MissionBoardPage: React.FC = () => {
       if (!deletedData || deletedData.length === 0) {
         console.error('No mission was deleted - mission may not exist or user lacks permission')
         alert('Failed to delete mission. You may not have permission to delete this mission.')
-        // Revert the optimistic update by refetching
         await fetchMissions()
         return
       }
 
       console.log(`Successfully deleted mission ${missionId}:`, deletedData)
       
-      // Force a small delay to ensure database transaction is complete
       setTimeout(() => {
-        // Double-check by refetching to ensure consistency
         fetchMissions()
       }, 500)
 
     } catch (error) {
       console.error('Unexpected error deleting mission:', error)
       alert('Failed to delete mission. Please try again.')
-      // Revert the optimistic update by refetching
       await fetchMissions()
     }
   }
@@ -219,18 +215,36 @@ const MissionBoardPage: React.FC = () => {
     navigate('/add-mission')
   }
 
+  const handleMobileSearch = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchQuery.trim()) {
+      // Filter missions based on search query
+      const filteredMissions = missions.filter(mission =>
+        mission.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        mission.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        mission.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        mission.location.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+      setMissions(filteredMissions)
+      setShowSearch(false)
+      setSearchQuery('')
+    }
+  }
+
+  const handleLogoClick = () => {
+    navigate('/')
+  }
+
   const formatDueDate = (dueDate: string | null) => {
     if (!dueDate) return 'not stated'
     
     const today = new Date()
     const due = new Date(dueDate)
     
-    // Check if it's today
     if (due.toDateString() === today.toDateString()) {
       return 'TODAY'
     }
     
-    // Format as readable date
     return due.toLocaleDateString('en-US', { 
       day: 'numeric', 
       month: 'long' 
@@ -248,13 +262,169 @@ const MissionBoardPage: React.FC = () => {
     )
   }
 
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-white">
+        {/* Mobile Header */}
+        <div className="bg-[#B91C1C] text-white flex items-center justify-between px-4 py-3">
+          <button 
+            onClick={handleLogoClick}
+            className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+          >
+            <span className="text-2xl font-bold hover:text-red-200 transition-colors">BeliYo!</span>
+          </button>
+          <span className="text-xl font-medium">Mission Board</span>
+          <button 
+            onClick={() => setShowSearch(!showSearch)}
+            className="hover:text-red-200 transition-colors"
+          >
+            <Search className="w-6 h-6" />
+          </button>
+        </div>
+
+        {/* Mobile Search Bar */}
+        {showSearch && (
+          <div className="bg-white border-b border-gray-200 p-4">
+            <form onSubmit={handleMobileSearch} className="flex gap-2">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search missions..."
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                autoFocus
+              />
+              <button
+                type="submit"
+                className="bg-red-600 text-white px-4 py-2 rounded-md hover:bg-red-700 transition-colors"
+              >
+                Search
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowSearch(false)
+                  setSearchQuery('')
+                  fetchMissions() // Reset to all missions
+                }}
+                className="bg-gray-500 text-white px-4 py-2 rounded-md hover:bg-gray-600 transition-colors"
+              >
+                Cancel
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* Add Request Button */}
+        <div className="flex justify-center mt-4">
+          <button
+            onClick={handleAddRequest}
+            className="bg-red-600 text-white px-6 py-2 rounded-full flex items-center gap-2 shadow-lg hover:bg-red-700 transition-all"
+          >
+            <Plus className="w-5 h-5" />
+            <span className="font-bold text-sm">ADD REQUEST</span>
+          </button>
+        </div>
+
+        {/* Mission Cards Grid */}
+        <div className="grid grid-cols-2 gap-4 p-4">
+          {missions.map((mission) => (
+            <div key={mission.id} className="bg-white shadow-md rounded-lg p-4 relative">
+              <div className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
+                <div className="w-4 h-4 bg-red-600 rounded-full"></div>
+              </div>
+              <div className="flex flex-col items-center">
+                <div className="text-4xl mb-2">
+                  <span role="img" aria-label="avatar">👤</span>
+                </div>
+                <p className="text-center text-gray-800 font-medium mb-2">"{mission.title}"</p>
+                <p className="text-center text-gray-600 text-sm mb-4">Due {formatDueDate(mission.due_date)}</p>
+                {mission.status === 'accepted' && mission.accepted_by === user?.id ? (
+                  <button
+                    onClick={() => handleQuit(mission.id)}
+                    className="bg-gray-600 text-white px-4 py-1 rounded-full font-semibold text-xs uppercase tracking-wide hover:bg-gray-700 transition-colors"
+                  >
+                    IN PROGRESS
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => handleAccept(mission.id)}
+                    className="bg-red-600 text-white px-4 py-1 rounded-full font-semibold text-xs uppercase tracking-wide hover:bg-red-700 transition-colors"
+                  >
+                    ACCEPT CHALLENGE
+                  </button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Wooden Sign */}
+        <div className="flex justify-center mt-8 mb-12">
+          <div className="relative">
+            <div className="bg-gradient-to-b from-[#D4A574] to-[#B8935A] px-8 py-6 rounded-lg shadow-2xl border-4 border-[#8B6F47] relative">
+              <div className="text-center">
+                <h3 className="text-[#4A3C28] font-black text-xl mb-1">COMPLETE</h3>
+                <h3 className="text-[#4A3C28] font-black text-xl mb-1">MISSION TO</h3>
+                <h3 className="text-[#4A3C28] font-black text-xl mb-2">GET BADGES!</h3>
+              </div>
+              <div className="absolute inset-0 opacity-20 pointer-events-none">
+                <div className="h-full w-full bg-gradient-to-b from-transparent via-[#8B6F47] to-transparent" style={{ backgroundSize: '100% 4px', backgroundRepeat: 'repeat-y' }}></div>
+              </div>
+            </div>
+            <div className="w-6 h-20 bg-gradient-to-b from-[#8B6F47] to-[#6B5637] mx-auto rounded-b-sm shadow-lg"></div>
+          </div>
+        </div>
+
+        {/* Bottom Navigation */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:hidden">
+          <div className="flex justify-around py-2">
+            <button 
+              onClick={() => navigate('/shop')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">🏪</span>
+              <span className="text-xs font-medium">Shop</span>
+            </button>
+            <button 
+              onClick={() => navigate('/money-exchange')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">🔄</span>
+              <span className="text-xs font-medium">Exchange</span>
+            </button>
+            <button 
+              onClick={() => navigate('/chat')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">💬</span>
+              <span className="text-xs font-medium">Chats</span>
+            </button>
+            <button 
+              onClick={() => navigate('/mission')}
+              className="flex flex-col items-center py-2 px-3 text-[#B91C1C] font-medium"
+            >
+              <span className="text-xl mb-1">🎯</span>
+              <span className="text-xs font-medium">Mission</span>
+            </button>
+            <button 
+              onClick={() => navigate('/my-page')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">👤</span>
+              <span className="text-xs font-medium">MyPage</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-gray-100">
       <Header variant="shop" />
       <div className="flex">
-        {/* Main Content Area */}
         <div className="flex-1">
-          {/* Mission Cards Grid */}
           <div className="grid grid-cols-3 gap-6 p-8">
             {missions.length === 0 ? (
               <div className="col-span-3 text-center py-12">
@@ -285,9 +455,7 @@ const MissionBoardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Right Sidebar */}
         <div className="w-[280px] bg-gradient-to-b from-[#B91C1C] to-[#991B1B] min-h-[calc(100vh-64px)] flex flex-col items-center pt-8">
-          {/* Add Request Button */}
           <button
             onClick={handleAddRequest}
             className="bg-white text-[#B91C1C] px-6 py-3 rounded-full flex items-center gap-3 shadow-lg hover:shadow-xl transition-all mb-auto mt-8"
@@ -298,22 +466,18 @@ const MissionBoardPage: React.FC = () => {
             <span className="font-bold text-lg">ADD REQUEST</span>
           </button>
 
-          {/* Wooden Sign */}
           <div className="mt-auto mb-12">
             <div className="relative">
-              {/* Sign Board */}
               <div className="bg-gradient-to-b from-[#D4A574] to-[#B8935A] px-8 py-6 rounded-lg shadow-2xl border-4 border-[#8B6F47] relative">
                 <div className="text-center">
                   <h3 className="text-[#4A3C28] font-black text-xl mb-1">COMPLETE</h3>
                   <h3 className="text-[#4A3C28] font-black text-xl mb-1">MISSION TO</h3>
                   <h3 className="text-[#4A3C28] font-black text-xl mb-2">GET BADGES!</h3>
                 </div>
-                {/* Wood texture lines */}
                 <div className="absolute inset-0 opacity-20 pointer-events-none">
                   <div className="h-full w-full bg-gradient-to-b from-transparent via-[#8B6F47] to-transparent" style={{ backgroundSize: '100% 4px', backgroundRepeat: 'repeat-y' }}></div>
                 </div>
               </div>
-              {/* Wooden Pole */}
               <div className="w-6 h-20 bg-gradient-to-b from-[#8B6F47] to-[#6B5637] mx-auto rounded-b-sm shadow-lg"></div>
             </div>
           </div>

@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
+import type { Mission } from '../lib/supabase'
 import Header from '../components/Header'
-import { Store, ShoppingCart, RefreshCw, Target, Award, MessageCircle, Users, User, LogIn, Search, X } from 'lucide-react'
+import { Store, ShoppingCart, RefreshCw, Target, MessageCircle, User, LogIn, Search, X } from 'lucide-react'
 
 const MyPage: React.FC = () => {
   const { user, profile, signOut } = useAuth()
@@ -10,6 +12,8 @@ const MyPage: React.FC = () => {
   const [isMobile, setIsMobile] = useState(false)
   const [showSearchModal, setShowSearchModal] = useState(false)
   const [searchInput, setSearchInput] = useState('')
+  const [userMissions, setUserMissions] = useState<Mission[]>([])
+  const [loadingMissions, setLoadingMissions] = useState(true)
 
   // Check if mobile on mount and resize
   useEffect(() => {
@@ -28,6 +32,81 @@ const MyPage: React.FC = () => {
       navigate('/login')
     }
   }, [user, navigate])
+
+  // Fetch user's missions
+  useEffect(() => {
+    if (user) {
+      fetchUserMissions()
+      
+      // Set up real-time subscription for missions
+      const subscription = supabase
+        .channel('user_missions_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'missions',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            handleMissionRealtimeUpdate(payload)
+          }
+        )
+        .subscribe()
+
+      return () => {
+        subscription.unsubscribe()
+      }
+    }
+  }, [user])
+
+  const fetchUserMissions = async () => {
+    if (!user) return
+
+    try {
+      setLoadingMissions(true)
+      const { data, error } = await supabase
+        .from('missions')
+        .select('*')
+        .eq('user_id', user.id)
+        .in('status', ['pending', 'accepted'])
+        .order('created_at', { ascending: false })
+        .limit(3) // Show only the most recent 3 missions
+
+      if (error) {
+        console.error('Error fetching user missions:', error)
+        return
+      }
+
+      setUserMissions(data || [])
+    } catch (error) {
+      console.error('Error fetching user missions:', error)
+    } finally {
+      setLoadingMissions(false)
+    }
+  }
+
+  const handleMissionRealtimeUpdate = (payload: any) => {
+    if (payload.eventType === 'INSERT') {
+      // Add new mission to the list
+      setUserMissions(prev => [payload.new, ...prev].slice(0, 3))
+    } else if (payload.eventType === 'UPDATE') {
+      // Update existing mission
+      setUserMissions(prev => prev.map(mission => 
+        mission.id === payload.new.id ? payload.new : mission
+      ))
+    } else if (payload.eventType === 'DELETE') {
+      // Remove deleted mission
+      setUserMissions(prev => prev.filter(mission => mission.id !== payload.old.id))
+    }
+  }
+
+  const handleChatWithAccepter = (missionId: string, acceptedBy: string | null) => {
+    if (acceptedBy) {
+      navigate(`/chat/mission/${missionId}/${acceptedBy}`)
+    }
+  }
 
   // Show login prompt if not authenticated
   if (!user) {
@@ -67,10 +146,8 @@ const MyPage: React.FC = () => {
     { icon: Store, label: 'My Shop', path: '/my-shop' },
     { icon: ShoppingCart, label: 'Purchase History', path: '/my-page', active: true },
     { icon: RefreshCw, label: 'Exchange History', path: '/exchange-history' },
-    { icon: Target, label: 'Mission', path: '/my-page' },
-    { icon: Award, label: 'Badges', path: '/my-page' },
-    { icon: MessageCircle, label: 'Chat List', path: '/chat-list' },
-    { icon: Users, label: 'Chingu List', path: '/my-page' }
+    { icon: Target, label: 'Mission', path: '/mission-history' },
+    { icon: MessageCircle, label: 'Chat List', path: '/chat-list' }
   ]
 
   const handleMyPageClick = () => {
@@ -119,7 +196,7 @@ const MyPage: React.FC = () => {
             </button>
           </div>
           
-          {/* Navigation Grid - 3 Rows Structure */}
+          {/* Navigation Grid - 2 Rows Structure */}
           <div className="px-4 pb-4">
             <div className="space-y-4 text-sm">
               {/* Row 1 - 3 items */}
@@ -146,29 +223,22 @@ const MyPage: React.FC = () => {
                 </button>
               </div>
               
-              {/* Row 2 - 3 items */}
-              <div className="grid grid-cols-3 gap-2">
-                <button className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors">
+              {/* Row 2 - 2 items centered */}
+              <div className="grid grid-cols-2 gap-2 max-w-xs mx-auto">
+                <button 
+                  onClick={() => navigate('/mission-history')}
+                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
+                >
                   <Target className="w-6 h-6" />
                   <span className="font-medium text-xs">Mission</span>
                 </button>
                 
-                <button className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors">
-                  <Award className="w-6 h-6" />
-                  <span className="font-medium text-xs">Badges</span>
-                </button>
-                
-                <button className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors">
+                <button 
+                  onClick={() => navigate('/chat-list')}
+                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
+                >
                   <MessageCircle className="w-6 h-6" />
                   <span className="font-medium text-xs">Chat List</span>
-                </button>
-              </div>
-              
-              {/* Row 3 - 1 item centered */}
-              <div className="flex justify-center">
-                <button className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors w-1/3">
-                  <Users className="w-6 h-6" />
-                  <span className="font-medium text-xs">Chingu List</span>
                 </button>
               </div>
             </div>
@@ -219,20 +289,13 @@ const MyPage: React.FC = () => {
         <div className="bg-gray-100 pb-20">
           {/* User Header */}
           <div className="bg-white px-4 py-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center">
-                  <User className="w-8 h-8 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold text-black">Hi, {profile?.user_id || 'user name'}!</h2>
-                  <p className="text-red-600 italic text-sm">"Back on duty - time to be someone's hero!"</p>
-                </div>
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center">
+                <User className="w-8 h-8 text-white" />
               </div>
-              <div className="flex items-center justify-center w-16 h-16 bg-red-600 rounded-full relative">
-                <span className="text-white text-2xl font-bold">16</span>
-                <div className="absolute -top-1 -right-1 w-6 h-6 bg-yellow-400 rounded-full"></div>
-                <span className="absolute -bottom-2 text-xs text-red-600 font-medium">Badges</span>
+              <div>
+                <h2 className="text-xl font-bold text-black">Hi, {profile?.user_id || 'user name'}!</h2>
+                <p className="text-red-600 italic text-sm">"Ready to explore and connect!"</p>
               </div>
             </div>
           </div>
@@ -253,62 +316,57 @@ const MyPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Current Accomplishments */}
+          {/* Ongoing Missions - Full Width */}
           <div className="bg-white mt-2 px-4 py-6">
-            <h3 className="text-xl font-bold text-red-600 mb-4">Current Accomplishments</h3>
-            <div className="border border-gray-300 rounded-lg p-4">
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
-                  <span className="text-white text-xl">🦸</span>
-                </div>
-                <div>
-                  <h4 className="font-bold text-gray-700">Snack Rescuer!</h4>
-                  <p className="text-sm text-gray-600">Bought Mamee for fortune_seeker.1</p>
-                </div>
+            <h3 className="text-xl font-bold text-red-600 mb-4">Ongoing Missions</h3>
+            {loadingMissions ? (
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto"></div>
               </div>
-              <p className="text-red-500 italic text-center text-sm">Add more badges by completing missions!</p>
-            </div>
-          </div>
-
-          {/* Bottom Section */}
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            {/* Chingu Lists */}
-            <div className="bg-white px-4 py-6">
-              <h3 className="text-xl font-bold text-red-600 mb-4">Chingu Lists</h3>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-blue-400 rounded-full"></div>
-                    <span className="font-medium text-gray-900 text-sm">Im_Alive</span>
-                  </div>
-                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-xs font-medium">Online</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 bg-orange-400 rounded-full"></div>
-                    <span className="font-medium text-gray-900 text-sm">Pot@to_Min</span>
-                  </div>
-                  <span className="bg-red-100 text-red-800 px-2 py-1 rounded-full text-xs font-medium">Offline</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Ongoing Missions */}
-            <div className="bg-white px-4 py-6">
-              <h3 className="text-xl font-bold text-red-600 mb-4">Ongoing Missions</h3>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 bg-gray-800 rounded-full"></div>
-                  <div className="bg-white border-2 border-gray-300 rounded-lg p-2 relative text-xs">
-                    <p className="text-gray-700">"Please buy me KA's sambal Nyet"</p>
-                    <div className="absolute -bottom-1 left-2 w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-gray-300"></div>
-                  </div>
-                </div>
-                <button className="bg-red-600 text-white px-3 py-1 rounded text-xs font-medium hover:bg-red-700 transition-colors">
-                  CHAT
+            ) : userMissions.length === 0 ? (
+              <div className="text-center py-4">
+                <p className="text-gray-500 text-sm">No ongoing missions</p>
+                <button 
+                  onClick={() => navigate('/add-mission')}
+                  className="mt-2 text-red-600 text-xs font-medium hover:underline"
+                >
+                  Create a mission
                 </button>
               </div>
-            </div>
+            ) : (
+              <div className="space-y-3">
+                {userMissions.map((mission) => (
+                  <div key={mission.id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 flex-1">
+                      <div className="w-8 h-8 bg-gray-800 rounded-full flex-shrink-0"></div>
+                      <div className="bg-white border-2 border-gray-300 rounded-lg p-2 relative text-xs flex-1 min-w-0">
+                        <p className="text-gray-700 truncate">"{mission.title}"</p>
+                        <div className="absolute -bottom-1 left-2 w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-gray-300"></div>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => handleChatWithAccepter(mission.id, mission.accepted_by)}
+                      className={`px-3 py-1 rounded text-xs font-medium transition-colors ml-2 ${
+                        mission.accepted_by 
+                          ? 'bg-red-600 text-white hover:bg-red-700' 
+                          : 'bg-gray-400 text-white cursor-not-allowed'
+                      }`}
+                      disabled={!mission.accepted_by}
+                    >
+                      CHAT
+                    </button>
+                  </div>
+                ))}
+                {userMissions.length > 0 && (
+                  <button 
+                    onClick={() => navigate('/mission-history')}
+                    className="text-red-600 text-xs font-medium hover:underline block text-center mt-2"
+                  >
+                    View all missions
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -400,90 +458,88 @@ const MyPage: React.FC = () => {
             </div>
             <div>
               <h2 className="text-2xl font-bold text-black">Hi, {profile?.user_id || 'user name'}!</h2>
-              <p className="text-red-600 italic">"Back on duty - time to be someone's hero!"</p>
+              <p className="text-red-600 italic">"Ready to explore and connect!"</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-8">
-            {/* Left Column */}
-            <div className="space-y-8">
-              {/* Purchase History */}
-              <div>
-                <h3 className="text-xl font-bold text-red-600 mb-4">Purchase History</h3>
-                <div className="bg-white rounded-lg p-6 shadow-sm">
-                  <div className="border-b border-gray-200 pb-4 mb-4">
-                    <p className="font-semibold text-gray-900">13-8-2025 (Order No: 123)</p>
-                  </div>
-                  <div className="flex items-center gap-4">
-                    <div className="w-20 h-16 bg-gray-800 rounded-lg"></div>
-                    <div>
-                      <h4 className="font-semibold text-gray-900">Mouse Pad</h4>
-                      <p className="text-green-600 font-medium">Free</p>
-                      <p className="text-sm text-gray-600">Purchase from: id_seller</p>
-                    </div>
-                  </div>
+          <div className="grid grid-cols-1 gap-8">
+            {/* Purchase History - Full Width */}
+            <div>
+              <h3 className="text-xl font-bold text-red-600 mb-4">Purchase History</h3>
+              <div className="bg-white rounded-lg p-6 shadow-sm">
+                <div className="border-b border-gray-200 pb-4 mb-4">
+                  <p className="font-semibold text-gray-900">13-8-2025 (Order No: 123)</p>
                 </div>
-              </div>
-
-              {/* Chingu Lists */}
-              <div>
-                <h3 className="text-xl font-bold text-red-600 mb-4">Chingu Lists</h3>
-                <div className="bg-white rounded-lg p-6 shadow-sm space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-yellow-400 rounded-full"></div>
-                      <span className="font-medium text-gray-900">Nobody_nobody_but_U</span>
-                    </div>
-                    <span className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">Online</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-orange-400 rounded-full"></div>
-                      <span className="font-medium text-gray-900">Pot@to_Min</span>
-                    </div>
-                    <span className="bg-red-100 text-red-800 px-3 py-1 rounded-full text-sm font-medium">Offline</span>
+                <div className="flex items-center gap-4">
+                  <div className="w-20 h-16 bg-gray-800 rounded-lg"></div>
+                  <div>
+                    <h4 className="font-semibold text-gray-900">Mouse Pad</h4>
+                    <p className="text-green-600 font-medium">Free</p>
+                    <p className="text-sm text-gray-600">Purchase from: id_seller</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Right Column */}
-            <div className="space-y-8">
-              {/* Current Accomplishments */}
-              <div>
-                <h3 className="text-xl font-bold text-red-600 mb-4">Current Accomplishments</h3>
-                <div className="bg-white rounded-lg p-6 shadow-sm">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-12 h-12 bg-red-500 rounded-full flex items-center justify-center">
-                      <span className="text-white font-bold">🦸</span>
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-gray-700">Snack Rescuer!</h4>
-                      <p className="text-sm text-gray-600">Bought Mamee for fortune_seeker.1</p>
-                    </div>
+            {/* Ongoing Missions - Full Width */}
+            <div>
+              <h3 className="text-xl font-bold text-red-600 mb-4">Ongoing Missions</h3>
+              <div className="bg-white rounded-lg p-6 shadow-sm">
+                {loadingMissions ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
+                    <p className="mt-2 text-gray-600 text-sm">Loading missions...</p>
                   </div>
-                  
-                  <p className="text-red-500 italic text-center mb-2">Add more badges by completing missions!</p>
-                </div>
-              </div>
-
-              {/* Ongoing Missions */}
-              <div>
-                <h3 className="text-xl font-bold text-red-600 mb-4">Ongoing Missions</h3>
-                <div className="bg-white rounded-lg p-6 shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gray-800 rounded-full"></div>
-                      <div className="bg-white border-2 border-gray-300 rounded-lg p-2 relative">
-                        <p className="text-sm text-gray-700">"Please buy me KA's sambal Nyet"</p>
-                        <div className="absolute -bottom-2 left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-300"></div>
-                      </div>
-                    </div>
-                    <button className="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors">
-                      CHAT
+                ) : userMissions.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500 mb-3">You haven't created any missions yet.</p>
+                    <button 
+                      onClick={() => navigate('/add-mission')}
+                      className="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors"
+                    >
+                      Create Your First Mission
                     </button>
                   </div>
-                </div>
+                ) : (
+                  <div className="space-y-4">
+                    {userMissions.map((mission) => (
+                      <div key={mission.id} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 flex-1">
+                          <div className="w-10 h-10 bg-gray-800 rounded-full"></div>
+                          <div className="bg-white border-2 border-gray-300 rounded-lg p-2 relative flex-1">
+                            <p className="text-sm text-gray-700">"{mission.title}"</p>
+                            {mission.accepted_by && (
+                              <p className="text-xs text-green-600 mt-1">Accepted</p>
+                            )}
+                            <div className="absolute -bottom-2 left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-300"></div>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => handleChatWithAccepter(mission.id, mission.accepted_by)}
+                          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                            mission.accepted_by 
+                              ? 'bg-red-600 text-white hover:bg-red-700' 
+                              : 'bg-gray-400 text-white cursor-not-allowed'
+                          }`}
+                          disabled={!mission.accepted_by}
+                          title={mission.accepted_by ? 'Chat with accepter' : 'Waiting for someone to accept'}
+                        >
+                          CHAT
+                        </button>
+                      </div>
+                    ))}
+                    {userMissions.length > 0 && (
+                      <div className="text-center mt-4">
+                        <button 
+                          onClick={() => navigate('/mission-history')}
+                          className="text-red-600 text-sm font-medium hover:underline"
+                        >
+                          View All Your Missions
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           </div>

@@ -33,7 +33,7 @@ const HomePage: React.FC = () => {
             {/* Logo */}
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-white rounded-full flex items-center justify-center">
-                <span className="text-red-600 font-bold text-lg">B</span>
+                <img src="https://imgur.com/zxuU9XH" alt="Logo" className="w-8 h-8" />
               </div>
               <span className="text-white text-xl font-bold">BeliYo!</span>
             </div>
@@ -219,7 +219,7 @@ const HomePage: React.FC = () => {
         <div className="w-1/2 relative">
           <div className="absolute inset-0 z-0">
             <img 
-              src="https://images.unsplash.com/photo-1567401893414-76b7b1e5a7a5?w=1200&h=900&fit=crop" 
+              src="https://apicms.thestar.com.my/uploads/images/2024/10/22/2978595.webp" 
               alt="Money background"
               className="w-full h-full object-cover"
             />
@@ -228,12 +228,12 @@ const HomePage: React.FC = () => {
           
           <div className="relative z-10 h-full flex flex-col justify-center px-12">
             <h1 className="text-5xl font-bold text-white mb-6 leading-tight">
-              CURRENCY<br />
-              TENGAH NAIK NI<br />
-              TUKAR CEPAT !
+              CARI. <br />
+              JUAL. <br />
+              BELIYO!
             </h1>
             <p className="text-white text-lg mb-8 max-w-md">
-              Brighten up your style with our bold and fun new arrivals
+              From students, to students. 
             </p>
             <Link 
               to="/shop"
@@ -250,7 +250,7 @@ const HomePage: React.FC = () => {
             {/* Shop Card */}
             <Link to="/shop" className="group relative overflow-hidden rounded-lg shadow-lg">
               <img 
-                src="https://images.unsplash.com/photo-1487412720507-e7ab37603c6f?w=400&h=400&fit=crop" 
+                src="https://pixabay.com/photos/squirrel-shopping-hazelnut-8132645/" 
                 alt="Shop"
                 className="w-full h-full object-cover"
               />
@@ -265,7 +265,7 @@ const HomePage: React.FC = () => {
             {/* Money Exchange Card */}
             <Link to="/money-exchange" className="group relative overflow-hidden rounded-lg shadow-lg">
               <img 
-                src="https://images.unsplash.com/photo-1579621970563-ebec7560ff3e?w=400&h=400&fit=crop" 
+                src="https://pixabay.com/photos/don-saved-payment-money-tax-gold-1264858/" 
                 alt="Money Exchange"
                 className="w-full h-full object-cover"
               />
@@ -280,7 +280,7 @@ const HomePage: React.FC = () => {
             {/* Mission Card */}
             <Link to="/mission-board" className="group relative overflow-hidden rounded-lg shadow-lg">
               <img 
-                src="https://images.unsplash.com/photo-1606787366850-de6330128bfc?w=400&h=400&fit=crop" 
+                src="https://pixabay.com/photos/arrows-quiver-archery-bow-4082046/" 
                 alt="Mission"
                 className="w-full h-full object-cover"
               />
@@ -295,7 +295,7 @@ const HomePage: React.FC = () => {
             {/* My Page Card */}
             <Link to="/my-page" className="group relative overflow-hidden rounded-lg shadow-lg">
               <img 
-                src="https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400&h=400&fit=crop" 
+                src="https://pixabay.com/photos/black-red-suit-tie-clothing-2597198/" 
                 alt="My Page"
                 className="w-full h-full object-cover"
               />

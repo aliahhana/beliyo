@@ -14,8 +14,6 @@ import {
   ChevronRight,
   X,
   Store,
-  Award,
-  Users,
   Target,
   RefreshCw,
   LogIn,
@@ -309,10 +307,8 @@ const ChatListPage: React.FC = () => {
     { icon: Store, label: 'My Shop', path: '/my-shop' },
     { icon: ShoppingCart, label: 'Purchase History', path: '/my-page' },
     { icon: RefreshCw, label: 'Exchange History', path: '/exchange-history' },
-    { icon: Target, label: 'Mission', path: '/my-page' },
-    { icon: Award, label: 'Badges', path: '/my-page' },
-    { icon: MessageCircle, label: 'Chat List', path: '/chat-list', active: true },
-    { icon: Users, label: 'Chingu List', path: '/my-page' }
+    { icon: Target, label: 'Mission', path: '/mission-history' },
+    { icon: MessageCircle, label: 'Chat List', path: '/chat-list', active: true }
   ]
 
   if (isMobile) {
@@ -336,9 +332,10 @@ const ChatListPage: React.FC = () => {
             </button>
           </div>
           
-          {/* Navigation Grid */}
+          {/* Navigation Grid - 2 Rows Structure */}
           <div className="px-4 pb-4">
             <div className="space-y-4 text-sm">
+              {/* Row 1 - 3 items */}
               <div className="grid grid-cols-3 gap-2">
                 <button 
                   onClick={() => navigate('/my-shop')}
@@ -365,7 +362,8 @@ const ChatListPage: React.FC = () => {
                 </button>
               </div>
               
-              <div className="grid grid-cols-3 gap-2">
+              {/* Row 2 - 2 items */}
+              <div className="grid grid-cols-2 gap-2">
                 <button 
                   onClick={() => navigate('/my-page')}
                   className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
@@ -375,29 +373,11 @@ const ChatListPage: React.FC = () => {
                 </button>
                 
                 <button 
-                  onClick={() => navigate('/my-page')}
-                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
-                >
-                  <Award className="w-6 h-6" />
-                  <span className="font-medium text-xs">Badges</span>
-                </button>
-                
-                <button 
                   onClick={() => navigate('/chat-list')}
                   className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors bg-red-700"
                 >
                   <MessageCircle className="w-6 h-6" />
                   <span className="font-medium text-xs">Chat List</span>
-                </button>
-              </div>
-              
-              <div className="flex justify-center">
-                <button 
-                  onClick={() => navigate('/my-page')}
-                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors w-1/3"
-                >
-                  <Users className="w-6 h-6" />
-                  <span className="font-medium text-xs">Chingu List</span>
                 </button>
               </div>
             </div>

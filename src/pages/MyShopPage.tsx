@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { supabase } from '../lib/supabase'
 import { currencyService } from '../services/currencyService'
 import Header from '../components/Header'
-import { ShoppingCart, Award, Users, MessageCircle, Target, Store, User, LogIn, Package, RefreshCw, Edit, Trash2, Eye, EyeOff, Plus, ChevronDown, AlertTriangle, Search, X } from 'lucide-react'
+import { ShoppingCart, MessageCircle, Target, Store, User, LogIn, Package, RefreshCw, Edit, Trash2, Eye, EyeOff, Plus, ChevronDown, AlertTriangle, Search, X } from 'lucide-react'
 
 interface Product {
   id: string
@@ -381,10 +381,8 @@ const MyShopPage: React.FC = () => {
     { icon: Store, label: 'My Shop', path: '/my-shop', active: true },
     { icon: ShoppingCart, label: 'Purchase History', path: '/my-page' },
     { icon: RefreshCw, label: 'Exchange History', path: '/exchange-history' },
-    { icon: Target, label: 'Mission', path: '/my-page' },
-    { icon: Award, label: 'Badges', path: '/my-page' },
-    { icon: MessageCircle, label: 'Chat List', path: '/chat-list' },
-    { icon: Users, label: 'Chingu List', path: '/my-page' }
+    { icon: Target, label: 'Mission', path: '/mission-history' },
+    { icon: MessageCircle, label: 'Chat List', path: '/chat-list' }
   ]
 
   const activeProducts = products.filter(p => !p.is_sold)
@@ -413,7 +411,7 @@ const MyShopPage: React.FC = () => {
             </button>
           </div>
           
-          {/* Navigation Grid - 3 Rows Structure */}
+          {/* Navigation Grid - 2 Rows Structure */}
           <div className="px-4 pb-4">
             <div className="space-y-4 text-sm">
               {/* Row 1 - 3 items */}
@@ -443,11 +441,11 @@ const MyShopPage: React.FC = () => {
                 </button>
               </div>
               
-              {/* Row 2 - 3 items */}
-              <div className="grid grid-cols-3 gap-2">
+              {/* Row 2 - 2 items centered */}
+              <div className="flex justify-center gap-2">
                 <button 
                   onClick={() => navigate('/my-page')}
-                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
+                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors w-1/3"
                 >
                   <Target className="w-6 h-6" />
                   <span className="font-medium text-xs">Mission</span>
@@ -455,29 +453,10 @@ const MyShopPage: React.FC = () => {
                 
                 <button 
                   onClick={() => navigate('/my-page')}
-                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
-                >
-                  <Award className="w-6 h-6" />
-                  <span className="font-medium text-xs">Badges</span>
-                </button>
-                
-                <button 
-                  onClick={() => navigate('/my-page')}
-                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
+                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors w-1/3"
                 >
                   <MessageCircle className="w-6 h-6" />
                   <span className="font-medium text-xs">Chat List</span>
-                </button>
-              </div>
-              
-              {/* Row 3 - 1 item centered */}
-              <div className="flex justify-center">
-                <button 
-                  onClick={() => navigate('/my-page')}
-                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors w-1/3"
-                >
-                  <Users className="w-6 h-6" />
-                  <span className="font-medium text-xs">Chingu List</span>
                 </button>
               </div>
             </div>

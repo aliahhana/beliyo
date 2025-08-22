@@ -579,6 +579,17 @@ const ShopPage: React.FC = () => {
           </div>
         )}
 
+        {/* Sell Items Button - Mobile Only */}
+        <div className="px-4 py-3 bg-white border-b border-gray-200">
+          <Link
+            to="/seller"
+            className="flex items-center justify-center gap-2 bg-[#B91C1C] text-white px-6 py-3 rounded-lg font-medium hover:bg-red-700 transition-colors w-full"
+          >
+            <Plus className="w-5 h-5" />
+            SELL ITEMS
+          </Link>
+        </div>
+
         {/* Main Content */}
         <div className="p-4">
           {loading ? (

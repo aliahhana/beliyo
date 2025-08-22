@@ -19,6 +19,7 @@ import MyShopPage from './pages/MyShopPage'
 import EditProductPage from './pages/EditProductPage'
 import ExchangeHistoryPage from './pages/ExchangeHistoryPage'
 import SellerPage from './pages/SellerPage'
+import MissionHistoryPage from './pages/MissionHistoryPage'
 
 // Updated Chat Pages - Now using Unified 1:1 Chat System
 import ChatListPage from './pages/ChatListPage'
@@ -69,6 +70,7 @@ function App() {
             <Route path="/my-page" element={<MyPage />} />
             <Route path="/my-shop" element={<MyShopPage />} />
             <Route path="/exchange-history" element={<ExchangeHistoryPage />} />
+            <Route path="/mission-history" element={<MissionHistoryPage />} />
 
             {/* Chat System Routes */}
             <Route path="/chat-list" element={<ChatListPage />} />

@@ -153,7 +153,7 @@ const MissionHistoryPage: React.FC = () => {
 
   const sidebarItems = [
     { icon: Store, label: 'My Shop', path: '/my-shop' },
-    { icon: ShoppingCart, label: 'Purchase History', path: '/my-page' },
+    { icon: ShoppingCart, label: 'Purchase History', path: '/purchase-history' },
     { icon: RefreshCw, label: 'Exchange History', path: '/exchange-history' },
     { icon: Target, label: 'Mission', path: '/mission-history', active: true },
     { icon: MessageCircle, label: 'Chat List', path: '/chat-list' }

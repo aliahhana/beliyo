@@ -197,9 +197,7 @@ const PurchaseHistoryPage: React.FC = () => {
     { icon: ShoppingCart, label: 'Purchase History', path: '/purchase-history', active: true },
     { icon: RefreshCw, label: 'Exchange History', path: '/exchange-history' },
     { icon: Target, label: 'Mission', path: '/my-page' },
-    { icon: Award, label: 'Badges', path: '/my-page' },
-    { icon: MessageCircle, label: 'Chat List', path: '/my-page' },
-    { icon: Users, label: 'Chingu List', path: '/my-page' },
+    { icon: MessageCircle, label: 'Chat List', path: '/chat-list' },
   ];
 
   const handleBeliYoClick = () => {

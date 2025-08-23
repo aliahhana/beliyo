@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Search, User, Menu, X } from 'lucide-react'
+import { Search, User, Menu, X, LogIn, LogOut } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 
 interface HeaderProps {
   variant?: 'default' | 'home'
@@ -10,6 +11,7 @@ const Header: React.FC<HeaderProps> = ({ variant = 'default' }) => {
   const navigate = useNavigate()
   const [searchQuery, setSearchQuery] = useState('')
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
+  const { user, signOut } = useAuth()
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,6 +28,17 @@ const Header: React.FC<HeaderProps> = ({ variant = 'default' }) => {
     setIsMobileMenuOpen(!isMobileMenuOpen)
   }
 
+  const handleAuthClick = async () => {
+    if (user) {
+      // User is logged in, perform logout
+      await signOut()
+      navigate('/')
+    } else {
+      // User is not logged in, navigate to login page
+      navigate('/login')
+    }
+  }
+
   return (
     <header className="bg-[#B91C1C] text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -37,7 +50,7 @@ const Header: React.FC<HeaderProps> = ({ variant = 'default' }) => {
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-8">
+          <nav className="hidden md:flex items-center space-x-7">
             <Link to="/" className="hover:text-gray-200 transition-colors font-medium">
               Home
             </Link>
@@ -61,7 +74,7 @@ const Header: React.FC<HeaderProps> = ({ variant = 'default' }) => {
             </Link>
           </nav>
 
-          {/* Desktop Search and User */}
+          {/* Desktop Search, User, and Auth */}
           <div className="hidden md:flex items-center gap-4">
             <form onSubmit={handleSearchSubmit} className="relative">
               <input
@@ -83,6 +96,22 @@ const Header: React.FC<HeaderProps> = ({ variant = 'default' }) => {
               className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center hover:bg-white/30 transition-colors"
             >
               <User className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={handleAuthClick}
+              className="flex items-center gap-2 px-4 py-2 bg-white/20 rounded-md hover:bg-white/30 transition-colors font-medium"
+            >
+              {user ? (
+                <>
+                  <LogOut className="w-4 h-4" />
+                  <span>Logout</span>
+                </>
+              ) : (
+                <>
+                  <LogIn className="w-4 h-4" />
+                  <span>Login</span>
+                </>
+              )}
             </button>
           </div>
 
@@ -159,6 +188,24 @@ const Header: React.FC<HeaderProps> = ({ variant = 'default' }) => {
                 <Search className="w-4 h-4" />
               </button>
             </form>
+
+            {/* Mobile Auth Button */}
+            <button 
+              onClick={handleAuthClick}
+              className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2 bg-white/20 rounded-md hover:bg-white/30 transition-colors font-medium"
+            >
+              {user ? (
+                <>
+                  <LogOut className="w-4 h-4" />
+                  <span>Logout</span>
+                </>
+              ) : (
+                <>
+                  <LogIn className="w-4 h-4" />
+                  <span>Login</span>
+                </>
+              )}
+            </button>
           </div>
         )}
       </div>

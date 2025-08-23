@@ -112,7 +112,7 @@ const ExchangeHistoryPage: React.FC = () => {
 
   const sidebarItems = [
     { icon: Store, label: 'My Shop', path: '/my-shop' },
-    { icon: ShoppingCart, label: 'Purchase History', path: '/my-page' },
+    { icon: ShoppingCart, label: 'Purchase History', path: '/purchase-history' },
     { icon: RefreshCw, label: 'Exchange History', path: '/exchange-history', active: true },
     { icon: Target, label: 'Mission', path: '/mission-history' },
     { icon: MessageCircle, label: 'Chat List', path: '/chat-list' }

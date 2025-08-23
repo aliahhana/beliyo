@@ -196,7 +196,7 @@ const PurchaseHistoryPage: React.FC = () => {
     { icon: Store, label: 'My Shop', path: '/my-shop' },
     { icon: ShoppingCart, label: 'Purchase History', path: '/purchase-history', active: true },
     { icon: RefreshCw, label: 'Exchange History', path: '/exchange-history' },
-    { icon: Target, label: 'Mission', path: '/my-page' },
+    { icon: Target, label: 'Mission', path: '/mission-history' },
     { icon: MessageCircle, label: 'Chat List', path: '/chat-list' },
   ];
 

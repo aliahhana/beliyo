@@ -44,13 +44,13 @@ const Header: React.FC<HeaderProps> = ({ variant = 'default' }) => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link to="/" className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2 -mr-2">
             <img src="https://i.imgur.com/zxuU9XH.png" alt="BeliYo Logo" className="w-10 h-10" />
             <span className="text-2xl font-bold">BeliYo!</span>
           </Link>
 
           {/* Desktop Navigation */}
-          <nav className="hidden md:flex items-center space-x-7">
+          <nav className="hidden md:flex items-center space-x-6">
             <Link to="/" className="hover:text-gray-200 transition-colors font-medium">
               Home
             </Link>

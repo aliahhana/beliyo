@@ -1,0 +1,724 @@
+import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
+import { supabase } from '../lib/supabase'
+import type { Mission } from '../lib/supabase'
+import Header from '../components/Header'
+import { Store, ShoppingCart, RefreshCw, Target, MessageCircle, User, LogIn, Search, X } from 'lucide-react'
+
+interface PurchaseItem {
+    id: string;
+    product_id: string;
+    buyer_id: string;
+    seller_id: string;
+    name: string;
+    price: number;
+    currency: string;
+    images: string | string[] | null;
+    created_at: string;
+    timeAgo: string;
+}
+
+const MyPage: React.FC = () => {
+  const { user, profile, signOut } = useAuth()
+  const navigate = useNavigate()
+  const [isMobile, setIsMobile] = useState(false)
+  const [showSearchModal, setShowSearchModal] = useState(false)
+  const [searchInput, setSearchInput] = useState('')
+  const [userMissions, setUserMissions] = useState<Mission[]>([])
+  const [loadingMissions, setLoadingMissions] = useState(true)
+  const [purchaseHistory, setPurchaseHistory] = useState<PurchaseItem[]>([]);
+  const [loadingPurchases, setLoadingPurchases] = useState(true);
+
+  // Check if mobile on mount and resize
+  useEffect(() => {
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth < 768)
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
+
+  // Redirect to login if not authenticated
+  useEffect(() => {
+    if (!user) {
+      navigate('/login')
+    }
+  }, [user, navigate])
+
+  // Fetch user's missions
+  useEffect(() => {
+    if (user) {
+      fetchUserMissions()
+      
+      // Set up real-time subscription for missions
+      const subscription = supabase
+        .channel('user_missions_changes')
+        .on(
+          'postgres_changes',
+          {
+            event: '*',
+            schema: 'public',
+            table: 'missions',
+            filter: `user_id=eq.${user.id}`
+          },
+          (payload) => {
+            handleMissionRealtimeUpdate(payload)
+          }
+        )
+        .subscribe()
+
+      return () => {
+        subscription.unsubscribe()
+      }
+    }
+  }, [user])
+
+  // Fetch user's purchase history
+  useEffect(() => {
+      if (user) {
+          fetchPurchaseHistory();
+          setupRealtimeSubscription();
+      }
+  }, [user]);
+
+  const fetchUserMissions = async () => {
+    if (!user) return
+
+    try {
+      setLoadingMissions(true)
+      const { data, error } = await supabase
+        .from('missions')
+        .select('*')
+        .eq('user_id', user.id)
+        .in('status', ['pending', 'accepted'])
+        .order('created_at', { ascending: false })
+        .limit(3) // Show only the most recent 3 missions
+
+      if (error) {
+        console.error('Error fetching user missions:', error)
+        return
+      }
+
+      setUserMissions(data || [])
+    } catch (error) {
+      console.error('Error fetching user missions:', error)
+    } finally {
+      setLoadingMissions(false)
+    }
+  }
+
+  const fetchPurchaseHistory = async () => {
+    if (!user) return;
+    setLoadingPurchases(true);
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select(`
+          id,
+          product_id,
+          buyer_id,
+          seller_id,
+          created_at,
+          products (
+            id,
+            user_id,
+            name,
+            price,
+            currency,
+            images
+          )
+        `)
+        .eq('buyer_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const historyWithTimeAgo = data?.map((item) => ({
+        id: item.id,
+        product_id: item.product_id,
+        buyer_id: item.buyer_id,
+        seller_id: item.seller_id,
+        name: item.products?.name || 'Unnamed Product',
+        price: item.products?.price || 0,
+        currency: item.products?.currency || 'USD',
+        images: item.products?.images || null,
+        created_at: item.created_at,
+        timeAgo: getTimeAgo(item.created_at),
+      })) || [];
+
+      const uniqueHistory = historyWithTimeAgo.filter(
+        (value, index, self) => index === self.findIndex((t) => t.product_id === value.product_id)
+      );
+
+      setPurchaseHistory(uniqueHistory);
+    } catch (error) {
+      console.error('Error fetching purchase history:', error);
+    } finally {
+      setLoadingPurchases(false);
+    }
+  };
+
+  const setupRealtimeSubscription = () => {
+    if (!user) return;
+
+    const subscription = supabase
+      .channel('transactions_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'transactions',
+          filter: `buyer_id=eq.${user.id}`,
+        },
+        async (payload) => {
+          try {
+            const { data: productData, error: productError } = await supabase
+              .from('products')
+              .select('name, price, currency, images')
+              .eq('id', payload.new.product_id)
+              .single();
+
+            if (productError) throw productError;
+
+            const newPurchase = {
+              id: payload.new.id,
+              product_id: payload.new.product_id,
+              buyer_id: payload.new.buyer_id,
+              seller_id: payload.new.seller_id,
+              name: productData?.name || 'Unnamed Product',
+              price: productData?.price || 0,
+              currency: productData?.currency || 'USD',
+              images: productData?.images || null,
+              created_at: payload.new.created_at,
+              timeAgo: getTimeAgo(payload.new.created_at),
+            };
+            setPurchaseHistory((prev) => [newPurchase, ...prev]);
+          } catch (error) {
+            console.error('Error in real-time subscription:', error);
+          }
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') console.log('Subscription established');
+      });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  };
+
+  const getTimeAgo = (dateString: string) => {
+    const now = new Date();
+    const date = new Date(dateString);
+    const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
+
+    if (diffInMinutes < 1) return 'Just now';
+    if (diffInMinutes < 60) return `${diffInMinutes} min ago`;
+    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} hours ago`;
+    return `${Math.floor(diffInMinutes / 1440)} days ago`;
+  };
+
+  const handleMissionRealtimeUpdate = (payload: any) => {
+    if (payload.eventType === 'INSERT') {
+      // Add new mission to the list
+      setUserMissions(prev => [payload.new, ...prev].slice(0, 3))
+    } else if (payload.eventType === 'UPDATE') {
+      // Update existing mission
+      setUserMissions(prev => prev.map(mission => 
+        mission.id === payload.new.id ? payload.new : mission
+      ))
+    } else if (payload.eventType === 'DELETE') {
+      // Remove deleted mission
+      setUserMissions(prev => prev.filter(mission => mission.id !== payload.old.id))
+    }
+  }
+
+  const handleChatWithAccepter = (missionId: string, acceptedBy: string | null) => {
+    if (acceptedBy) {
+      navigate(`/chat/mission/${missionId}/${acceptedBy}`)
+    }
+  }
+
+  // Show login prompt if not authenticated
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header variant="shop" />
+        <div className="max-w-4xl mx-auto px-4 py-16">
+          <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
+            <div className="w-24 h-24 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-6">
+              <LogIn className="w-12 h-12 text-red-600" />
+            </div>
+            <h2 className="text-3xl font-bold text-gray-900 mb-4">Sign In Required</h2>
+            <p className="text-gray-600 mb-8 max-w-md mx-auto">
+              Please sign in to access your profile, order history, and personalized settings.
+            </p>
+            <div className="flex gap-4 justify-center">
+              <button
+                onClick={() => navigate('/login')}
+                className="bg-red-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-red-700 transition-colors"
+              >
+                Sign In
+              </button>
+              <button
+                onClick={() => navigate('/signup')}
+                className="border border-gray-300 text-gray-700 px-8 py-3 rounded-lg font-medium hover:bg-gray-50 transition-colors"
+              >
+                Create Account
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const sidebarItems = [
+    { icon: Store, label: 'My Shop', path: '/my-shop' },
+    { icon: ShoppingCart, label: 'Purchase History', path: '/purchase-history' },
+    { icon: RefreshCw, label: 'Exchange History', path: '/exchange-history' },
+    { icon: Target, label: 'Mission', path: '/mission-history' },
+    { icon: MessageCircle, label: 'Chat List', path: '/chat-list' }
+  ]
+
+  const handleMyPageClick = () => {
+    // Navigate to MyPage with correct path
+    navigate('/my-page')
+  }
+
+  const handleBeliYoClick = () => {
+    navigate('/')
+  }
+
+  const handleSearch = (query: string) => {
+    if (query.trim()) {
+      setShowSearchModal(false)
+      navigate(`/shop?search=${encodeURIComponent(query.trim())}`)
+    }
+  }
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault()
+    if (searchInput.trim()) {
+      handleSearch(searchInput.trim())
+      setSearchInput('')
+    }
+  }
+
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-gray-100">
+        {/* Mobile Header */}
+        <div className="bg-[#B91C1C] text-white">
+          {/* Top bar with logo and search */}
+          <div className="flex items-center justify-between p-4">
+            <button 
+              onClick={handleBeliYoClick}
+              className="text-2xl font-bold hover:text-red-200 transition-colors"
+            >
+              BeliYo!
+            </button>
+            <div className="text-xl font-medium">MY PAGE</div>
+            <button 
+              onClick={() => setShowSearchModal(true)}
+              className="hover:text-red-200 transition-colors"
+            >
+              <Search className="w-6 h-6" />
+            </button>
+          </div>
+          
+          {/* Navigation Grid - 2 Rows Structure */}
+          <div className="px-4 pb-4">
+            <div className="space-y-4 text-sm">
+              {/* Row 1 - 3 items */}
+              <div className="grid grid-cols-3 gap-2">
+                <button 
+                  onClick={() => navigate('/my-shop')}
+                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
+                >
+                  <Store className="w-6 h-6" />
+                  <span className="font-medium text-xs">My Shop</span>
+                </button>
+                
+                <button className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors bg-red-700">
+                  <ShoppingCart className="w-6 h-6" />
+                  <span className="font-medium text-xs">Purchase History</span>
+                </button>
+                
+                <button 
+                  onClick={() => navigate('/exchange-history')}
+                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
+                >
+                  <RefreshCw className="w-6 h-6" />
+                  <span className="font-medium text-xs">Exchange History</span>
+                </button>
+              </div>
+              
+              {/* Row 2 - 2 items centered */}
+              <div className="grid grid-cols-2 gap-2 max-w-xs mx-auto">
+                <button 
+                  onClick={() => navigate('/mission-history')}
+                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
+                >
+                  <Target className="w-6 h-6" />
+                  <span className="font-medium text-xs">Mission</span>
+                </button>
+                
+                <button 
+                  onClick={() => navigate('/chat-list')}
+                  className="flex flex-col items-center gap-2 p-3 text-white hover:bg-red-700 transition-colors"
+                >
+                  <MessageCircle className="w-6 h-6" />
+                  <span className="font-medium text-xs">Chat List</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Search Modal */}
+        {showSearchModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center pt-20">
+            <div className="bg-white rounded-lg shadow-lg w-full max-w-md mx-4">
+              <div className="p-4">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-gray-900">Search Products</h3>
+                  <button
+                    onClick={() => {
+                      setShowSearchModal(false)
+                      setSearchInput('')
+                    }}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-6 h-6" />
+                  </button>
+                </div>
+                <form onSubmit={handleSearchSubmit}>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                      placeholder="Search for products..."
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B91C1C] focus:border-transparent"
+                      autoFocus
+                    />
+                    <button
+                      type="submit"
+                      className="px-4 py-2 bg-[#B91C1C] text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      <Search className="w-5 h-5" />
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content */}
+        <div className="bg-gray-100 pb-20">
+          {/* User Header */}
+          <div className="bg-white px-4 py-6">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center">
+                <User className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h2 className="text-xl font-bold text-black">Hi, {profile?.user_id || 'user name'}!</h2>
+                <p className="text-red-600 italic text-sm">"Ready to explore and connect!"</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Purchase History */}
+          <div className="bg-white mt-2 px-4 py-6">
+            <h3 className="text-xl font-bold text-red-600 mb-4">Purchase History</h3>
+            {loadingPurchases ? (
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto"></div>
+              </div>
+            ) : purchaseHistory.length === 0 ? (
+              <div className="text-center py-4">
+                <p className="text-gray-500 text-sm">No purchase history</p>
+              </div>
+            ) : (
+              purchaseHistory.map((item) => (
+                <div key={item.id} className="border-b border-gray-200 pb-2 mb-4">
+                  <p className="font-semibold text-gray-900">{new Date(item.created_at).toLocaleDateString()}</p>
+                  <div className="flex items-center gap-4 mt-2">
+                    {item.images && (
+                      <img
+                        src={Array.isArray(item.images) ? item.images[0] : item.images}
+                        alt={item.name}
+                        className="w-20 h-16 object-cover rounded-md"
+                      />
+                    )}
+                    <div>
+                      <h4 className="font-semibold text-gray-900">{item.name}</h4>
+                      <p className="text-green-600 font-medium">{item.price === 0 ? 'FREE' : `${item.currency}${item.price.toLocaleString()}`}</p>
+                      <p className="text-sm text-gray-600">Purchase from: {item.seller_id}</p>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          {/* Ongoing Missions - Full Width */}
+          <div className="bg-white mt-2 px-4 py-6">
+            <h3 className="text-xl font-bold text-red-600 mb-4">Ongoing Missions</h3>
+            {loadingMissions ? (
+              <div className="text-center py-4">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-red-600 mx-auto"></div>
+              </div>
+            ) : userMissions.length === 0 ? (
+              <div className="text-center py-4">
+                <p className="text-gray-500 text-sm">No ongoing missions</p>
+                <button 
+                  onClick={() => navigate('/add-mission')}
+                  className="mt-2 text-red-600 text-xs font-medium hover:underline"
+                >
+                  Create a mission
+                </button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {userMissions.map((mission) => (
+                  <div key={mission.id} className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 flex-1">
+                      <div className="w-8 h-8 bg-gray-800 rounded-full flex-shrink-0"></div>
+                      <div className="bg-white border-2 border-gray-300 rounded-lg p-2 relative text-xs flex-1 min-w-0">
+                        <p className="text-gray-700 truncate">"{mission.title}"</p>
+                        <div className="absolute -bottom-1 left-2 w-0 h-0 border-l-2 border-r-2 border-t-2 border-transparent border-t-gray-300"></div>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => handleChatWithAccepter(mission.id, mission.accepted_by)}
+                      className={`px-3 py-1 rounded text-xs font-medium transition-colors ml-2 ${
+                        mission.accepted_by 
+                          ? 'bg-red-600 text-white hover:bg-red-700' 
+                          : 'bg-gray-400 text-white cursor-not-allowed'
+                      }`}
+                      disabled={!mission.accepted_by}
+                    >
+                      CHAT
+                    </button>
+                  </div>
+                ))}
+                {userMissions.length > 0 && (
+                  <button 
+                    onClick={() => navigate('/mission-history')}
+                    className="text-red-600 text-xs font-medium hover:underline block text-center mt-2"
+                  >
+                    View all missions
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Bottom Navigation - Standardized to match ShopPage */}
+        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 md:hidden">
+          <div className="flex justify-around py-2">
+            <button 
+              onClick={() => navigate('/shop')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">🏪</span>
+              <span className="text-xs font-medium">Shop</span>
+            </button>
+            <button 
+              onClick={() => navigate('/money-exchange')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">🔄</span>
+              <span className="text-xs font-medium">Exchange</span>
+            </button>
+            <button 
+              onClick={() => navigate('/chat')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">💬</span>
+              <span className="text-xs font-medium">Chats</span>
+            </button>
+            <button 
+              onClick={() => navigate('/mission')}
+              className="flex flex-col items-center py-2 px-3 text-gray-600 hover:text-[#B91C1C] transition-colors"
+            >
+              <span className="text-xl mb-1">🎯</span>
+              <span className="text-xs font-medium">Mission</span>
+            </button>
+            <button 
+              onClick={() => navigate('/my-page')}
+              className="flex flex-col items-center py-2 px-3 text-[#B91C1C] font-medium"
+            >
+              <span className="text-xl mb-1">👤</span>
+              <span className="text-xs">MyPage</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <Header variant="shop" />
+      
+      <div className="flex">
+        {/* Red Sidebar */}
+        <div className="w-64 bg-[#B91C1C] min-h-screen">
+          <div className="p-6">
+            <h1 
+              onClick={handleMyPageClick}
+              className="text-white text-xl font-bold mb-6 cursor-pointer hover:opacity-90 transition-opacity"
+            >
+              MY PAGE
+            </h1>
+            
+            <div className="space-y-2">
+              {sidebarItems.map((item, index) => {
+                const Icon = item.icon
+                return (
+                  <div
+                    key={index}
+                    onClick={() => navigate(item.path)}
+                    className={`flex items-center gap-3 p-3 text-white hover:bg-red-700 transition-colors cursor-pointer ${
+                      item.active ? 'bg-red-700' : ''
+                    }`}
+                  >
+                    <Icon className="w-5 h-5" />
+                    <span className="font-medium">{item.label}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex-1 p-8">
+          {/* User Header */}
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center">
+              <User className="w-8 h-8 text-white" />
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-black">Hi, {profile?.user_id || 'user name'}!</h2>
+              <p className="text-red-600 italic">"Ready to explore and connect!"</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-8">
+            {/* Purchase History - Full Width */}
+            <div>
+              <h3 className="text-xl font-bold text-red-600 mb-4">Purchase History</h3>
+              <div className="bg-white rounded-lg p-6 shadow-sm">
+                {loadingPurchases ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
+                    <p className="mt-2 text-gray-600 text-sm">Loading purchases...</p>
+                  </div>
+                ) : purchaseHistory.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500">No purchase history available.</p>
+                  </div>
+                ) : (
+                  purchaseHistory.map((item) => (
+                    <div key={item.id} className="border-b border-gray-200 pb-4 mb-4">
+                      <p className="font-semibold text-gray-900">{new Date(item.created_at).toLocaleDateString()}</p>
+                      <div className="flex items-center gap-4 mt-2">
+                        {item.images && (
+                          <img
+                            src={Array.isArray(item.images) ? item.images[0] : item.images}
+                            alt={item.name}
+                            className="w-20 h-16 object-cover rounded-md"
+                          />
+                        )}
+                        <div>
+                          <h4 className="font-semibold text-gray-900">{item.name}</h4>
+                          <p className="text-green-600 font-medium">{item.price === 0 ? 'FREE' : `${item.currency}${item.price.toLocaleString()}`}</p>
+													<p className="text-sm text-gray-600">Purchase from: {item.seller_id}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Ongoing Missions - Full Width */}
+            <div>
+              <h3 className="text-xl font-bold text-red-600 mb-4">Ongoing Missions</h3>
+              <div className="bg-white rounded-lg p-6 shadow-sm">
+                {loadingMissions ? (
+                  <div className="text-center py-4">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600 mx-auto"></div>
+                    <p className="mt-2 text-gray-600 text-sm">Loading missions...</p>
+                  </div>
+                ) : userMissions.length === 0 ? (
+                  <div className="text-center py-4">
+                    <p className="text-gray-500 mb-3">You haven't created any missions yet.</p>
+                    <button 
+                      onClick={() => navigate('/add-mission')}
+                      className="bg-red-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-red-700 transition-colors"
+                    >
+                      Create Your First Mission
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {userMissions.map((mission) => (
+                      <div key={mission.id} className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 flex-1">
+                          <div className="w-10 h-10 bg-gray-800 rounded-full"></div>
+                          <div className="bg-white border-2 border-gray-300 rounded-lg p-2 relative flex-1">
+                            <p className="text-sm text-gray-700">"{mission.title}"</p>
+                            {mission.accepted_by && (
+                              <p className="text-xs text-green-600 mt-1">Accepted</p>
+                            )}
+                            <div className="absolute -bottom-2 left-4 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-300"></div>
+                          </div>
+                        </div>
+                        <button 
+                          onClick={() => handleChatWithAccepter(mission.id, mission.accepted_by)}
+                          className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                            mission.accepted_by 
+                              ? 'bg-red-600 text-white hover:bg-red-700' 
+                              : 'bg-gray-400 text-white cursor-not-allowed'
+                          }`}
+                          disabled={!mission.accepted_by}
+                          title={mission.accepted_by ? 'Chat with accepter' : 'Waiting for someone to accept'}
+                        >
+                          CHAT
+                        </button>
+                      </div>
+                    ))}
+                    {userMissions.length > 0 && (
+                      <div className="text-center mt-4">
+                        <button 
+                          onClick={() => navigate('/mission-history')}
+                          className="text-red-600 text-sm font-medium hover:underline"
+                        >
+                          View All Your Missions
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export default MyPage
